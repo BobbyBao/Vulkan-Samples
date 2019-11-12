@@ -69,6 +69,11 @@ set(ORDER_LIST
     "descriptor_management"
     "render_passes"
     "render_subpasses"
+    "pipeline_barriers"
+    "wait_idle"
+    "layout_transitions"
+    "pipeline_cache"
+    "specialization_constants"
     "command_buffer_usage"
     "afbc")
 

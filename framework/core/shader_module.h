@@ -37,7 +37,8 @@ enum class ShaderResourceType
 	BufferUniform,
 	BufferStorage,
 	PushConstant,
-	SpecializationConstant
+	SpecializationConstant,
+	All
 };
 
 /// Store shader resource data.

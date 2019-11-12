@@ -31,7 +31,7 @@ namespace vkb
  * More subpasses can be added to the sequence if required.
  * For example, postprocessing can be implemented with two pipelines which
  * share render targets.
- * 
+ *
  * GeometrySubpass -> Processes Scene for Shaders, use by itself if shader requires no lighting
  * ForwardSubpass -> Binds lights at the beginning of a GeometrySubpass to create Forward Rendering, should be used with most default shaders
  * LightingSubpass -> Holds a Global Light uniform, Can be combined with GeometrySubpass to create Deferred Rendering
@@ -89,6 +89,8 @@ class RenderPipeline
 	 *         if drawing has not started
 	 */
 	std::unique_ptr<Subpass> &get_active_subpass();
+
+	void set_use_dynamic_resources(bool dynamic);
 
   private:
 	std::vector<std::unique_ptr<Subpass>> subpasses;

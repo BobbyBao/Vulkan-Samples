@@ -17,8 +17,6 @@
 
 #include "transform.h"
 
-#include "common/error.h"
-
 VKBP_DISABLE_WARNINGS()
 #include "common/glm_common.h"
 #include <glm/gtx/matrix_decompose.hpp>
@@ -86,6 +84,7 @@ void Transform::set_matrix(const glm::mat4 &matrix)
 	glm::vec3 skew;
 	glm::vec4 perspective;
 	glm::decompose(matrix, scale, rotation, translation, skew, perspective);
+	rotation = glm::conjugate(rotation);
 
 	invalidate_world_matrix();
 }

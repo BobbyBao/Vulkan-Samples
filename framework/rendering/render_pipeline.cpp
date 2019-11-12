@@ -36,7 +36,8 @@ RenderPipeline::RenderPipeline(std::vector<std::unique_ptr<Subpass>> &&subpasses
 	{
 		subpass->prepare();
 	}
-	// Default clear value
+
+	// Default clear values
 	clear_value[0].color        = {0.0f, 0.0f, 0.0f, 1.0f};
 	clear_value[1].depthStencil = {0.0f, ~0U};
 }
@@ -76,6 +77,12 @@ void RenderPipeline::draw(CommandBuffer &command_buffer, RenderTarget &render_ta
 {
 	assert(!subpasses.empty() && "Render pipeline should contain at least one sub-pass");
 
+	// Pad clear values if they're less than render target attachments
+	while (clear_value.size() < render_target.get_attachments().size())
+	{
+		clear_value.push_back({0.0f, 0.0f, 0.0f, 1.0f});
+	}
+
 	for (size_t i = 0; i < subpasses.size(); ++i)
 	{
 		active_subpass_index = i;
@@ -97,6 +104,14 @@ void RenderPipeline::draw(CommandBuffer &command_buffer, RenderTarget &render_ta
 	}
 
 	active_subpass_index = 0;
+}
+
+void RenderPipeline::set_use_dynamic_resources(bool dynamic)
+{
+	for (auto &subpass : subpasses)
+	{
+		subpass->set_use_dynamic_resources(dynamic);
+	}
 }
 
 std::unique_ptr<Subpass> &RenderPipeline::get_active_subpass()

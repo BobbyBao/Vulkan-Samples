@@ -23,6 +23,7 @@
 #include <sstream>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include <vk_mem_alloc.h>
 #include <volk.h>
@@ -225,5 +226,38 @@ void insert_image_memory_barrier(
     VkPipelineStageFlags    src_stage_mask,
     VkPipelineStageFlags    dst_stage_mask,
     VkImageSubresourceRange subresource_range);
+
+/**
+ * @brief Load and store info for a render pass attachment.
+ */
+struct LoadStoreInfo
+{
+	VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+
+	VkAttachmentStoreOp store_op = VK_ATTACHMENT_STORE_OP_STORE;
+};
+
+namespace gbuffer
+{
+/**
+  * @return Load store info to load all and store only the swapchain
+  */
+std::vector<LoadStoreInfo> get_load_all_store_swapchain();
+
+/**
+  * @return Load store info to clear all and store only the swapchain
+  */
+std::vector<LoadStoreInfo> get_clear_all_store_swapchain();
+
+/**
+  * @return Load store info to clear and store all images
+  */
+std::vector<LoadStoreInfo> get_clear_store_all();
+
+/**
+  * @return Default clear values for the G-buffer
+  */
+std::vector<VkClearValue> get_clear_value();
+}        // namespace gbuffer
 
 }        // namespace vkb

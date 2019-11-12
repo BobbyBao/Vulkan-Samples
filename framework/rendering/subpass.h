@@ -26,6 +26,10 @@
 #include "scene_graph/components/light.h"
 #include "scene_graph/node.h"
 
+VKBP_DISABLE_WARNINGS()
+#include "common/glm_common.h"
+VKBP_ENABLE_WARNINGS()
+
 namespace vkb
 {
 class CommandBuffer;
@@ -98,6 +102,8 @@ class Subpass
 
 	void set_output_attachments(std::vector<uint32_t> output);
 
+	void set_use_dynamic_resources(bool dynamic);
+
 	/**
 	 * @brief Add definitions to shader variant within a subpass
 	 * 
@@ -139,8 +145,47 @@ class Subpass
 		return light_buffer;
 	}
 
+	/**
+	 * @brief Create a buffer allocation from scene graph lights to be bound to shaders
+	 *		  Provides the specified number of lights, regardless of how many are within the scene
+	 *
+	 * @tparam T ForwardLights / DeferredLights
+	 * @param scene_lights  Lights from the scene graph
+	 * @param num_lights Number of lights to render
+	 * @return BufferAllocation A buffer allocation created for use in shaders
+	 */
+	template <typename T>
+	BufferAllocation allocate_set_num_lights(const std::vector<sg::Light *> &scene_lights, size_t num_lights)
+	{
+		T light_info;
+		light_info.count = to_u32(num_lights);
+
+		std::vector<Light> lights_vector;
+		for (uint32_t i = 0U; i < num_lights; ++i)
+		{
+			auto        light      = i < scene_lights.size() ? scene_lights.at(i) : scene_lights.back();
+			const auto &properties = light->get_properties();
+			auto &      transform  = light->get_node()->get_transform();
+
+			lights_vector.push_back(Light({{transform.get_translation(), static_cast<float>(light->get_light_type())},
+			                               {properties.color, properties.intensity},
+			                               {transform.get_rotation() * properties.direction, properties.range},
+			                               {properties.inner_cone_angle, properties.outer_cone_angle}}));
+		}
+
+		std::copy(lights_vector.begin(), lights_vector.end(), light_info.lights);
+
+		auto &           render_frame = get_render_context().get_active_frame();
+		BufferAllocation light_buffer = render_frame.allocate_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(T));
+		light_buffer.update(light_info);
+
+		return light_buffer;
+	}
+
   protected:
 	RenderContext &render_context;
+
+	bool use_dynamic_resources{false};
 
   private:
 	ShaderSource vertex_shader;

@@ -181,6 +181,11 @@ class VulkanSample : public Application
 	VkPhysicalDeviceFeatures requested_device_features{};
 
 	/**
+	 * @brief Context used for rendering, it is responsible for managing the frames and their underlying images
+	 */
+	std::unique_ptr<RenderContext> render_context{nullptr};
+
+	/**
 	 * @brief Update scene
 	 * @param delta_time
 	 */
@@ -203,7 +208,7 @@ class VulkanSample : public Application
 	 * @param command_buffer The command buffer to record the commands to
 	 * @param render_target The render target that is being drawn to
 	 */
-	void draw(CommandBuffer &command_buffer, RenderTarget &render_target);
+	virtual void draw(CommandBuffer &command_buffer, RenderTarget &render_target);
 
 	/**
 	 * @brief Starts the render pass, executes the render pipeline, and then ends the render pass

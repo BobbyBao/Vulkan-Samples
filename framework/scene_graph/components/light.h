@@ -24,7 +24,9 @@
 
 #include "common/error.h"
 
-#include <glm/glm.hpp>
+VKBP_DISABLE_WARNINGS()
+#include "common/glm_common.h"
+VKBP_ENABLE_WARNINGS()
 
 #include "core/shader_module.h"
 #include "scene_graph/component.h"
