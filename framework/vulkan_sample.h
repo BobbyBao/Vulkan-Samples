@@ -181,11 +181,6 @@ class VulkanSample : public Application
 	VkPhysicalDeviceFeatures requested_device_features{};
 
 	/**
-	 * @brief Context used for rendering, it is responsible for managing the frames and their underlying images
-	 */
-	std::unique_ptr<RenderContext> render_context{nullptr};
-
-	/**
 	 * @brief Update scene
 	 * @param delta_time
 	 */
