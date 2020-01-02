@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, Arm Limited and Contributors
+/* Copyright (c) 2019-2020, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -241,6 +241,11 @@ class CommandBuffer
 	const RenderPassBinding &get_current_render_pass() const;
 
 	const uint32_t get_current_subpass_index() const;
+
+	/**
+	 * @brief Check that the render area is an optimal size by comparing to the render area granularity
+	 */
+	const bool is_render_size_optimal(const VkRect2D &render_area);
 
 	/**
 	 * @brief Flush the piplines state

@@ -1,4 +1,4 @@
-/* Copyright (c) 2019, Arm Limited and Contributors
+/* Copyright (c) 2019-2020, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
  *
@@ -166,6 +166,12 @@ void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const s
 	begin_info.renderArea.extent = render_target.get_extent();
 	begin_info.clearValueCount   = to_u32(clear_values.size());
 	begin_info.pClearValues      = clear_values.data();
+
+	// Test the requested render area to confirm that it is optimal and could not cause a performance reduction
+	if (!is_render_size_optimal(begin_info.renderArea))
+	{
+		LOGD("Render target extent is not an optimal size, this may result in reduced performance.");
+	}
 
 	vkCmdBeginRenderPass(get_handle(), &begin_info, contents);
 
@@ -689,6 +695,15 @@ const CommandBuffer::RenderPassBinding &CommandBuffer::get_current_render_pass()
 const uint32_t CommandBuffer::get_current_subpass_index() const
 {
 	return pipeline_state.get_subpass_index();
+}
+
+const bool CommandBuffer::is_render_size_optimal(const VkRect2D &render_area)
+{
+	auto render_area_granularity = current_render_pass.render_pass->get_render_area_granularity();
+
+	return ((render_area.offset.x % render_area_granularity.width == 0) && (render_area.offset.y % render_area_granularity.height == 0) &&
+	        ((render_area.extent.width % render_area_granularity.width == 0) || (render_area.offset.x + render_area.extent.width == render_area_granularity.width)) &&
+	        ((render_area.extent.height % render_area_granularity.height == 0) || (render_area.offset.y + render_area.extent.height == render_area_granularity.height)));
 }
 
 VkResult CommandBuffer::reset(ResetMode reset_mode)

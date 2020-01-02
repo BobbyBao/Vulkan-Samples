@@ -1,5 +1,5 @@
 <!--
-- Copyright (c) 2019, Arm Limited and Contributors
+- Copyright (c) 2019-2020, Arm Limited and Contributors
 -
 - SPDX-License-Identifier: Apache-2.0
 -
@@ -100,6 +100,17 @@ Beyond setting the depth image usage bit to specify that it can be used as a `DE
 VkImageCreateInfo depth_info = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
 depth_info.usage = VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 ```
+
+## Render area granularity
+
+The render area provided to the render pass begin info struct should be tested against the `vkGetRenderAreaGranularity` to confirm that it is an optimal size. A render area is optimal when it satisfies all of the following conditions:
+
+* The `offset.x` member in `renderArea` is a multiple of the width member of the horizontal granularity.
+* The `offset.y` member in `renderArea` is a multiple of the height of the vertical granularity.
+* Either the `extent.width` member in `renderArea` is a multiple of the horizontal granularity or `offset.x` + `extent.width` is equal to the width of the framebuffer in the `VkRenderPassBeginInfo`.
+* Either the `extent.height` member in `renderArea` is a multiple of the vertical granularity or `offset.y` + `extent.height` is equal to the height of the framebuffer in the `VkRenderPassBeginInfo`.
+
+A non optimal render area may cause a negative impact to performance. More information on this is available [here](https://www.khronos.org/registry/vulkan/specs/1.1-extensions/man/html/vkGetRenderAreaGranularity.html) and [here](https://vulkan.lunarg.com/doc/view/1.0.33.0/linux/vkspec.chunked/ch07s04.html).
 
 ## Best-practice summary
 
