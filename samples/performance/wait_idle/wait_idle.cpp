@@ -80,20 +80,15 @@ void WaitIdle::CustomRenderContext::wait_frame()
 	// POI
 	//
 	// If wait idle is enabled, wait using vkDeviceWaitIdle
-	//
-	// Otherwise, wait using frame's fence with vkWaitForFences
 
 	vkb::RenderFrame &frame = get_active_frame();
 
-	if (wait_idle_enabled == 0)
+	if (wait_idle_enabled)
 	{
 		get_device().wait_idle();
-		frame.reset(false);
 	}
-	else
-	{
-		frame.reset(true);
-	}
+
+	frame.reset();
 }
 
 void WaitIdle::draw_gui()
@@ -103,12 +98,12 @@ void WaitIdle::draw_gui()
 
 	gui->show_options_window(
 	    /* body = */ [&]() {
-		    ImGui::RadioButton("Wait Idle", &wait_idle_enabled, 0);
+		    ImGui::RadioButton("Wait Idle", &wait_idle_enabled, 1);
 		    if (landscape)
 		    {
 			    ImGui::SameLine();
 		    }
-		    ImGui::RadioButton("Fences", &wait_idle_enabled, 1);
+		    ImGui::RadioButton("Fences", &wait_idle_enabled, 0);
 	    },
 	    /* lines = */ lines);
 }
