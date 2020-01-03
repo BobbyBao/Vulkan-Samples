@@ -17,7 +17,9 @@
 -
 -->
 
-# Memory limits with Vulkan on Mali GPUs
+# Memory limits with Vulkan 
+
+## Mali GPUs
 
 This article covers situations in which a Vulkan application might trigger an out of memory (OOM) condition on Mali GPUs, resulting in a `DEVICE_LOST` error, even if the API usage is correct. The OOM condition that developers hit most often is due to a very high vertex load, which might be relatively common when porting Vulkan applications from desktop to mobile.
 
