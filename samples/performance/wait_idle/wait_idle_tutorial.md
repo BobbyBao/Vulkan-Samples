@@ -64,7 +64,7 @@ This output clearly shows that ``WaitIdle`` forces the GPU to drain of all work 
 **Don't**
 
 * Unnecessarily wait for GPU data on either the CPU or GPU.
-* Use ``vkQueueWaitIdle()`` or ``vkDeviceWaitIdle()``.
+* Use ``vkQueueWaitIdle()`` or ``vkDeviceWaitIdle()`` unless absolutely necessary for less granular synchronisation. 
 
 **Impact**
 
@@ -72,4 +72,4 @@ This output clearly shows that ``WaitIdle`` forces the GPU to drain of all work 
 
 **Debugging**
 
-* Arm Mobile Studio can visualize the Arm CPU and GPU activity on both GPU queues, and can quickly show bubbles in scheduling either locally to the GPU queues (indicative of a stage dependency issue) or globally across both CPU and GPU (indicative of a blocking CPU call being used).
+* Arm Mobile Studio can be used visualize the Arm CPU and Mali GPU activity on both GPU queues, and can quickly show bubbles in scheduling either locally to the GPU queues (indicative of a stage dependency issue) or globally across both CPU and GPU (indicative of a blocking CPU call being used).

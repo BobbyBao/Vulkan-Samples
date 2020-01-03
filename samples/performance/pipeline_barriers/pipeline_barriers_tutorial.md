@@ -85,7 +85,7 @@ a pipeline consisting of multiple stages.
 The available pipeline stages are defined in the `VkPipelineStage` enumeration.
 
 For the synchronization of a shared resource accessed for writing by one command and then followed by
-another read command, Vulkan introduces the concept of pipeline barries.
+another read command, Vulkan introduces the concept of pipeline barriers.
 Depending on the resource type (e.g. `VkImage` or `VkBuffer`) required by a read operation there are
 three different types of barriers - `VkMemoryBarrier`, `VkBufferMemoryBarrier` and `VkImageMemoryBarrier`.
 
@@ -174,4 +174,4 @@ Expect to have to tune your pipelining to work well on a tile-based GPU when por
 **Debugging**
 
 * Look through the rendering pipeline for any case of missing synchronization between passes.
-* Use [Streamline Performance Analyzer](https://developer.arm.com/tools-and-software/embedded/arm-development-studio/components/streamline-performance-analyzer) to visualize the Arm CPU and GPU activity on both GPU hardware slots. You can quickly see if there are bubbles in scheduling either locally to the GPU hardware (indicative of a stage dependency issue) or globally across both CPU and GPU (indicative of a blocking CPU call being used).
+* If on a Mali GPU, use [Streamline Performance Analyzer](https://developer.arm.com/tools-and-software/embedded/arm-development-studio/components/streamline-performance-analyzer) to visualize the Arm CPU and GPU activity on both GPU hardware slots. You can quickly see if there are bubbles in scheduling either locally to the GPU hardware (indicative of a stage dependency issue) or globally across both CPU and GPU (indicative of a blocking CPU call being used).

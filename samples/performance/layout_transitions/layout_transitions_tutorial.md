@@ -34,9 +34,9 @@ prevent the GPU from performing some optimizations.
 This tutorial will cover an example of such optimizations and how to avoid the performance
 overhead from using sub-optimal layouts.
 
-## Transaction elimination
+## Transaction elimination on Mali GPUs
 
-Mali GPUs feature transaction elimination, a technology that is used to avoid
+Mali GPUs employ something called transaction elimination, which is a technology used to avoid
 frame buffer write bandwidth for static regions of the framebuffer.
 This is especially beneficial for games that contain many static opaque overlays.
 

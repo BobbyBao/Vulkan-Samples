@@ -81,4 +81,4 @@ This output highlights the improvement achieved when utilizing specialization co
 
 **Debugging**
 
-* Use the Mali Offline Compiler to measure the impact of your shader code changes, including analysis of shortest and longest path through the programs.
+* If on a Mali GPU, use the Mali Offline Compiler to measure the impact of your shader code changes, including analysis of shortest and longest path through the programs.
