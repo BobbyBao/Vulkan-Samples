@@ -48,7 +48,7 @@ class ResourceRecord
 
 	const std::ostringstream &get_stream();
 
-	size_t register_shader_module(VkShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant);
+	size_t register_shader_module(vk::ShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant);
 
 	size_t register_pipeline_layout(const std::vector<ShaderModule *> &shader_modules,
 	                                bool                               use_dynamic_resources);
@@ -57,8 +57,8 @@ class ResourceRecord
 	                            const std::vector<LoadStoreInfo> &load_store_infos,
 	                            const std::vector<SubpassInfo> &  subpasses);
 
-	size_t register_graphics_pipeline(VkPipelineCache pipeline_cache,
-	                                  PipelineState & pipeline_state);
+	size_t register_graphics_pipeline(vk::PipelineCache pipeline_cache,
+	                                  PipelineState &   pipeline_state);
 
 	void set_shader_module(size_t index, const ShaderModule &shader_module);
 

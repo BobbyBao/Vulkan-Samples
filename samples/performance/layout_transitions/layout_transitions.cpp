@@ -85,21 +85,21 @@ vkb::RenderTarget LayoutTransitions::create_render_target(vkb::core::Image &&swa
 
 	vkb::core::Image depth_image{device,
 	                             extent,
-	                             VK_FORMAT_D32_SFLOAT,
-	                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                             VMA_MEMORY_USAGE_GPU_ONLY};
+	                             vk::Format::eD32Sfloat,
+	                             vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                             vma::MemoryUsage::eGpuOnly};
 
 	vkb::core::Image albedo_image{device,
 	                              extent,
-	                              VK_FORMAT_R8G8B8A8_UNORM,
-	                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                              VMA_MEMORY_USAGE_GPU_ONLY};
+	                              vk::Format::eR8G8B8A8Unorm,
+	                              vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                              vma::MemoryUsage::eGpuOnly};
 
 	vkb::core::Image normal_image{device,
 	                              extent,
-	                              VK_FORMAT_A2B10G10R10_UNORM_PACK32,
-	                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                              VMA_MEMORY_USAGE_GPU_ONLY};
+	                              vk::Format::eA2B10G10R10UnormPack32,
+	                              vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                              vma::MemoryUsage::eGpuOnly};
 
 	std::vector<vkb::core::Image> images;
 
@@ -118,10 +118,10 @@ vkb::RenderTarget LayoutTransitions::create_render_target(vkb::core::Image &&swa
 	return vkb::RenderTarget{std::move(images)};
 }
 
-VkImageLayout LayoutTransitions::pick_old_layout(VkImageLayout last_layout)
+vk::ImageLayout LayoutTransitions::pick_old_layout(vk::ImageLayout last_layout)
 {
 	return (layout_transition_type == LayoutTransitionType::UNDEFINED) ?
-	           VK_IMAGE_LAYOUT_UNDEFINED :
+	           vk::ImageLayout::eUndefined :
 	           last_layout;
 }
 
@@ -141,31 +141,31 @@ void LayoutTransitions::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarg
 	{
 		// Image 0 is the swapchain
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = pick_old_layout(VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_access_mask = 0;
-		memory_barrier.dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		memory_barrier.old_layout      = pick_old_layout(vk::ImageLayout::ePresentSrcKHR);
+		memory_barrier.new_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+		memory_barrier.src_access_mask = {};
+		memory_barrier.dst_access_mask = vk::AccessFlagBits::eColorAttachmentRead;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
 		command_buffer.image_memory_barrier(views.at(0), memory_barrier);
 
 		// Skip 1 as it is handled later as a depth-stencil attachment
 		for (size_t i = 2; i < views.size(); ++i)
 		{
-			memory_barrier.old_layout = pick_old_layout(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+			memory_barrier.old_layout = pick_old_layout(vk::ImageLayout::eShaderReadOnlyOptimal);
 			command_buffer.image_memory_barrier(views.at(i), memory_barrier);
 		}
 	}
 
 	{
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = pick_old_layout(VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_access_mask = 0;
-		memory_barrier.dst_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		memory_barrier.old_layout      = pick_old_layout(vk::ImageLayout::eDepthStencilReadOnlyOptimal);
+		memory_barrier.new_layout      = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+		memory_barrier.src_access_mask = {};
+		memory_barrier.dst_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
 
 		command_buffer.image_memory_barrier(views.at(1), memory_barrier);
 	}
@@ -196,23 +196,23 @@ void LayoutTransitions::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarg
 
 		if (i == 1)
 		{
-			barrier.old_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			barrier.new_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			barrier.old_layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			barrier.new_layout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
-			barrier.src_stage_mask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			barrier.src_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			barrier.src_stage_mask  = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			barrier.src_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 		}
 		else
 		{
-			barrier.old_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			barrier.new_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.old_layout = vk::ImageLayout::eColorAttachmentOptimal;
+			barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-			barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			barrier.src_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
 		}
 
-		barrier.dst_stage_mask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-		barrier.dst_access_mask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+		barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eFragmentShader;
+		barrier.dst_access_mask = vk::AccessFlagBits::eInputAttachmentRead;
 
 		command_buffer.image_memory_barrier(view, barrier);
 	}
@@ -228,11 +228,11 @@ void LayoutTransitions::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarg
 
 	{
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		memory_barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		memory_barrier.old_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+		memory_barrier.new_layout      = vk::ImageLayout::ePresentSrcKHR;
+		memory_barrier.src_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
 
 		command_buffer.image_memory_barrier(views.at(0), memory_barrier);
 	}

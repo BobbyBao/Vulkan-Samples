@@ -70,7 +70,9 @@ set(COMMON_FILES
     # Source Files
     common/error.cpp
     common/vk_common.cpp
-    common/utils.cpp)
+    common/utils.cpp
+    common/vma.hpp
+    common/vma.cpp)
 
 set(GEOMETRY_FILES
     # Header Files

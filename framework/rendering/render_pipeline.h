@@ -64,12 +64,12 @@ class RenderPipeline
 	/**
 	 * @return Clear values
 	 */
-	const std::vector<VkClearValue> &get_clear_value() const;
+	const std::vector<vk::ClearValue> &get_clear_value() const;
 
 	/**
 	 * @param clear_values Clear values to set
 	 */
-	void set_clear_value(const std::vector<VkClearValue> &clear_values);
+	void set_clear_value(const std::vector<vk::ClearValue> &clear_values);
 
 	/**
 	 * @brief Appends a subpass to the pipeline
@@ -82,7 +82,7 @@ class RenderPipeline
 	/**
 	 * @brief Record draw commands for each Subpass
 	 */
-	void draw(CommandBuffer &command_buffer, RenderTarget &render_target, VkSubpassContents contents = VK_SUBPASS_CONTENTS_INLINE);
+	void draw(CommandBuffer &command_buffer, RenderTarget &render_target, vk::SubpassContents contents = vk::SubpassContents::eInline);
 
 	/**
 	 * @return Subpass currently being recorded, or the first one
@@ -99,7 +99,7 @@ class RenderPipeline
 	std::vector<LoadStoreInfo> load_store = std::vector<LoadStoreInfo>(2);
 
 	/// Default to two clear values
-	std::vector<VkClearValue> clear_value = std::vector<VkClearValue>(2);
+	std::vector<vk::ClearValue> clear_value = std::vector<vk::ClearValue>(2);
 
 	size_t active_subpass_index{0};
 };

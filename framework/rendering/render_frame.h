@@ -76,11 +76,11 @@ class RenderFrame
 
 	const FencePool &get_fence_pool() const;
 
-	VkFence request_fence();
+	vk::Fence request_fence();
 
 	const SemaphorePool &get_semaphore_pool() const;
 
-	VkSemaphore request_semaphore();
+	vk::Semaphore request_semaphore();
 
 	/**
 	 * @brief Called when the swapchain changes
@@ -104,13 +104,13 @@ class RenderFrame
 	 */
 	CommandBuffer &request_command_buffer(const Queue &            queue,
 	                                      CommandBuffer::ResetMode reset_mode   = CommandBuffer::ResetMode::ResetPool,
-	                                      VkCommandBufferLevel     level        = VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+	                                      vk::CommandBufferLevel   level        = vk::CommandBufferLevel::ePrimary,
 	                                      size_t                   thread_index = 0);
 
-	DescriptorSet &request_descriptor_set(DescriptorSetLayout &                     descriptor_set_layout,
-	                                      const BindingMap<VkDescriptorBufferInfo> &buffer_infos,
-	                                      const BindingMap<VkDescriptorImageInfo> & image_infos,
-	                                      size_t                                    thread_index = 0);
+	DescriptorSet &request_descriptor_set(DescriptorSetLayout &                       descriptor_set_layout,
+	                                      const BindingMap<vk::DescriptorBufferInfo> &buffer_infos,
+	                                      const BindingMap<vk::DescriptorImageInfo> & image_infos,
+	                                      size_t                                      thread_index = 0);
 
 	void clear_descriptors();
 
@@ -126,7 +126,7 @@ class RenderFrame
 	 * @param thread_index Index of the buffer pool to be used by the current thread
 	 * @return The requested allocation, it may be empty
 	 */
-	BufferAllocation allocate_buffer(VkBufferUsageFlags usage, VkDeviceSize size, size_t thread_index = 0);
+	BufferAllocation allocate_buffer(vk::BufferUsageFlags usage, vk::DeviceSize size, size_t thread_index = 0);
 
   private:
 	Device &device;

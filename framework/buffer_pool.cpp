@@ -25,22 +25,22 @@
 
 namespace vkb
 {
-BufferBlock::BufferBlock(Device &device, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage) :
+BufferBlock::BufferBlock(Device &device, vk::DeviceSize size, vk::BufferUsageFlags usage, vma::MemoryUsage memory_usage) :
     buffer{device, size, usage, memory_usage}
 {
-	if (usage == VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+	if (usage == vk::BufferUsageFlagBits::eUniformBuffer)
 	{
 		alignment = device.get_properties().limits.minUniformBufferOffsetAlignment;
 	}
-	else if (usage == VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+	else if (usage == vk::BufferUsageFlagBits::eStorageBuffer)
 	{
 		alignment = device.get_properties().limits.minStorageBufferOffsetAlignment;
 	}
-	else if (usage == VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT)
+	else if (usage == vk::BufferUsageFlagBits::eUniformTexelBuffer)
 	{
 		alignment = device.get_properties().limits.minTexelBufferOffsetAlignment;
 	}
-	else if (usage == VK_BUFFER_USAGE_INDEX_BUFFER_BIT || usage == VK_BUFFER_USAGE_VERTEX_BUFFER_BIT || usage == VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT)
+	else if (usage == vk::BufferUsageFlagBits::eIndexBuffer || usage == vk::BufferUsageFlagBits::eVertexBuffer || usage == vk::BufferUsageFlagBits::eIndirectBuffer)
 	{
 		// Used to calculate the offset, required when allocating memory (its value should be power of 2)
 		alignment = 16;
@@ -68,9 +68,9 @@ BufferAllocation BufferBlock::allocate(const uint32_t allocate_size)
 	return BufferAllocation{buffer, allocate_size, aligned_offset};
 }
 
-VkDeviceSize BufferBlock::get_size() const
+vk::DeviceSize BufferBlock::get_size() const
 {
-	return buffer.get_size();
+	return 0;        // buffer.get_size();
 }
 
 void BufferBlock::reset()
@@ -78,7 +78,7 @@ void BufferBlock::reset()
 	offset = 0;
 }
 
-BufferPool::BufferPool(Device &device, VkDeviceSize block_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage) :
+BufferPool::BufferPool(Device &device, vk::DeviceSize block_size, vk::BufferUsageFlags usage, vma::MemoryUsage memory_usage) :
     device{device},
     block_size{block_size},
     usage{usage},
@@ -86,12 +86,22 @@ BufferPool::BufferPool(Device &device, VkDeviceSize block_size, VkBufferUsageFla
 {
 }
 
-BufferBlock &BufferPool::request_buffer_block(const VkDeviceSize minimum_size)
+BufferPool::BufferPool(BufferPool &&other) :
+    device{other.device},
+    block_size{other.block_size},
+    usage{other.usage},
+    memory_usage{other.memory_usage}
+{
+	other.block_size   = 0;
+	other.memory_usage = {};
+}
+
+BufferBlock &BufferPool::request_buffer_block(const vk::DeviceSize minimum_size)
 {
 	// Find the first block in the range of the inactive blocks
 	// which size is greater than the minimum size
 	auto it = std::upper_bound(buffer_blocks.begin() + active_buffer_block_count, buffer_blocks.end(), minimum_size,
-	                           [](const VkDeviceSize &a, const std::unique_ptr<BufferBlock> &b) -> bool { return a < b->get_size(); });
+	                           [](const vk::DeviceSize &a, const std::unique_ptr<BufferBlock> &b) -> bool { return a < b->get_size(); });
 
 	if (it != buffer_blocks.end())
 	{
@@ -100,7 +110,7 @@ BufferBlock &BufferPool::request_buffer_block(const VkDeviceSize minimum_size)
 		return *it->get();
 	}
 
-	LOGD("Building #{} buffer block ({})", buffer_blocks.size(), usage);
+	LOGD("Building #{} buffer block ({})", buffer_blocks.size(), vk::to_string(usage));
 
 	// Create a new block, store and return it
 	buffer_blocks.emplace_back(std::make_unique<BufferBlock>(device, std::max(block_size, minimum_size), usage, memory_usage));
@@ -120,7 +130,7 @@ void BufferPool::reset()
 	active_buffer_block_count = 0;
 }
 
-BufferAllocation::BufferAllocation(core::Buffer &buffer, VkDeviceSize size, VkDeviceSize offset) :
+BufferAllocation::BufferAllocation(core::Buffer &buffer, vk::DeviceSize size, vk::DeviceSize offset) :
     buffer{&buffer},
     size{size},
     base_offset{offset}
@@ -146,12 +156,12 @@ bool BufferAllocation::empty() const
 	return size == 0 || buffer == nullptr;
 }
 
-VkDeviceSize BufferAllocation::get_size() const
+vk::DeviceSize BufferAllocation::get_size() const
 {
 	return size;
 }
 
-VkDeviceSize BufferAllocation::get_offset() const
+vk::DeviceSize BufferAllocation::get_offset() const
 {
 	return base_offset;
 }

@@ -63,65 +63,65 @@ class HDR : public ApiVulkanSample
 
 	struct
 	{
-		VkPipeline skybox;
-		VkPipeline reflect;
-		VkPipeline composition;
-		VkPipeline bloom[2];
+		vk::Pipeline skybox;
+		vk::Pipeline reflect;
+		vk::Pipeline composition;
+		vk::Pipeline bloom[2];
 	} pipelines;
 
 	struct
 	{
-		VkPipelineLayout models;
-		VkPipelineLayout composition;
-		VkPipelineLayout bloom_filter;
+		vk::PipelineLayout models;
+		vk::PipelineLayout composition;
+		vk::PipelineLayout bloom_filter;
 	} pipeline_layouts;
 
 	struct
 	{
-		VkDescriptorSet object;
-		VkDescriptorSet skybox;
-		VkDescriptorSet composition;
-		VkDescriptorSet bloom_filter;
+		vk::DescriptorSet object;
+		vk::DescriptorSet skybox;
+		vk::DescriptorSet composition;
+		vk::DescriptorSet bloom_filter;
 	} descriptor_sets;
 
 	struct
 	{
-		VkDescriptorSetLayout models;
-		VkDescriptorSetLayout composition;
-		VkDescriptorSetLayout bloom_filter;
+		vk::DescriptorSetLayout models;
+		vk::DescriptorSetLayout composition;
+		vk::DescriptorSetLayout bloom_filter;
 	} descriptor_set_layouts;
 
 	// Framebuffer for offscreen rendering
 	struct FrameBufferAttachment
 	{
-		VkImage        image;
-		VkDeviceMemory mem;
-		VkImageView    view;
-		VkFormat       format;
-		void           destroy(VkDevice device)
+		vk::Image        image;
+		vk::DeviceMemory mem;
+		vk::ImageView    view;
+		vk::Format       format;
+		void             destroy(vk::Device device)
 		{
-			vkDestroyImageView(device, view, nullptr);
-			vkDestroyImage(device, image, nullptr);
-			vkFreeMemory(device, mem, nullptr);
+			device.destroy(view);
+			device.destroy(image);
+			device.freeMemory(mem);
 		}
 	};
 	struct FrameBuffer
 	{
 		int32_t               width, height;
-		VkFramebuffer         framebuffer;
+		vk::Framebuffer       framebuffer;
 		FrameBufferAttachment color[2];
 		FrameBufferAttachment depth;
-		VkRenderPass          render_pass;
-		VkSampler             sampler;
+		vk::RenderPass        render_pass;
+		vk::Sampler           sampler;
 	} offscreen;
 
 	struct
 	{
 		int32_t               width, height;
-		VkFramebuffer         framebuffer;
+		vk::Framebuffer       framebuffer;
 		FrameBufferAttachment color[1];
-		VkRenderPass          render_pass;
-		VkSampler             sampler;
+		vk::RenderPass        render_pass;
+		vk::Sampler           sampler;
 	} filter_pass;
 
 	std::vector<std::string> object_names;
@@ -130,7 +130,7 @@ class HDR : public ApiVulkanSample
 	~HDR();
 	void         get_device_features() override;
 	void         build_command_buffers() override;
-	void         create_attachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment);
+	void         create_attachment(vk::Format format, vk::ImageUsageFlagBits usage, FrameBufferAttachment *attachment);
 	void         prepare_offscreen_buffer();
 	void         load_assets();
 	void         setup_descriptor_pool();

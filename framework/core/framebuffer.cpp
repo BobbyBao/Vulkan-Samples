@@ -21,12 +21,12 @@
 
 namespace vkb
 {
-VkFramebuffer Framebuffer::get_handle() const
+const vk::Framebuffer &Framebuffer::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Framebuffer &>(*this);
 }
 
-const VkExtent2D &Framebuffer::get_extent() const
+const vk::Extent2D &Framebuffer::get_extent() const
 {
 	return extent;
 }
@@ -35,14 +35,14 @@ Framebuffer::Framebuffer(Device &device, const RenderTarget &render_target, cons
     device{device},
     extent{render_target.get_extent()}
 {
-	std::vector<VkImageView> attachments;
+	std::vector<vk::ImageView> attachments;
 
 	for (auto &view : render_target.get_views())
 	{
 		attachments.emplace_back(view.get_handle());
 	}
 
-	VkFramebufferCreateInfo create_info{VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
+	vk::FramebufferCreateInfo create_info;
 
 	create_info.renderPass      = render_pass.get_handle();
 	create_info.attachmentCount = to_u32(attachments.size());
@@ -51,27 +51,23 @@ Framebuffer::Framebuffer(Device &device, const RenderTarget &render_target, cons
 	create_info.height          = extent.height;
 	create_info.layers          = 1;
 
-	auto result = vkCreateFramebuffer(device.get_handle(), &create_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create Framebuffer"};
-	}
+	static_cast<vk::Framebuffer &>(*this) = device.get_handle().createFramebuffer(create_info);
 }
 
 Framebuffer::Framebuffer(Framebuffer &&other) :
+    vk::Framebuffer{other},
     device{other.device},
-    handle{other.handle},
     extent{other.extent}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::Framebuffer &>(*this) = other;
+	static_cast<vk::Framebuffer &>(other) = nullptr;
 }
 
 Framebuffer::~Framebuffer()
 {
-	if (handle != VK_NULL_HANDLE)
+	if (*this)
 	{
-		vkDestroyFramebuffer(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 }        // namespace vkb

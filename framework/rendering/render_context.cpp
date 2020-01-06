@@ -19,20 +19,20 @@
 
 namespace vkb
 {
-VkFormat RenderContext::DEFAULT_VK_FORMAT = VK_FORMAT_R8G8B8A8_SRGB;
+vk::Format RenderContext::DEFAULT_VK_FORMAT = vk::Format::eR8G8B8A8Srgb;
 
-RenderContext::RenderContext(Device &device, VkSurfaceKHR surface, uint32_t window_width, uint32_t window_height) :
+RenderContext::RenderContext(Device &device, vk::SurfaceKHR surface, uint32_t window_width, uint32_t window_height) :
     device{device},
     queue{device.get_suitable_graphics_queue()},
     surface_extent{window_width, window_height}
 {
-	if (surface != VK_NULL_HANDLE)
+	if (surface)
 	{
 		swapchain = std::make_unique<Swapchain>(device, surface);
 	}
 }
 
-void RenderContext::request_present_mode(const VkPresentModeKHR present_mode)
+void RenderContext::request_present_mode(const vk::PresentModeKHR present_mode)
 {
 	if (swapchain)
 	{
@@ -41,7 +41,7 @@ void RenderContext::request_present_mode(const VkPresentModeKHR present_mode)
 	}
 }
 
-void RenderContext::request_image_format(const VkFormat format)
+void RenderContext::request_image_format(const vk::Format format)
 {
 	if (swapchain)
 	{
@@ -62,7 +62,7 @@ void RenderContext::prepare(size_t thread_count, RenderTarget::CreateFunc create
 
 		surface_extent = swapchain->get_extent();
 
-		VkExtent3D extent{surface_extent.width, surface_extent.height, 1};
+		vk::Extent3D extent{surface_extent.width, surface_extent.height, 1};
 
 		for (auto &image_handle : swapchain->get_images())
 		{
@@ -81,10 +81,10 @@ void RenderContext::prepare(size_t thread_count, RenderTarget::CreateFunc create
 		swapchain = nullptr;
 
 		auto color_image = core::Image{device,
-		                               VkExtent3D{surface_extent.width, surface_extent.height, 1},
+		                               vk::Extent3D{surface_extent.width, surface_extent.height, 1},
 		                               DEFAULT_VK_FORMAT,        // We can use any format here that we like
-		                               VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-		                               VMA_MEMORY_USAGE_GPU_ONLY};
+		                               vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eTransferSrc,
+		                               vma::MemoryUsage::eGpuOnly};
 
 		auto render_target = create_render_target_func(std::move(color_image));
 		frames.emplace_back(RenderFrame{device, std::move(render_target), thread_count});
@@ -95,19 +95,19 @@ void RenderContext::prepare(size_t thread_count, RenderTarget::CreateFunc create
 	this->prepared                  = true;
 }
 
-void RenderContext::set_present_mode_priority(const std::vector<VkPresentModeKHR> &new_present_mode_priority_list)
+void RenderContext::set_present_mode_priority(const std::vector<vk::PresentModeKHR> &new_present_mode_priority_list)
 {
 	this->present_mode_priority_list = new_present_mode_priority_list;
 }
 
-void RenderContext::set_surface_format_priority(const std::vector<VkSurfaceFormatKHR> &new_surface_format_priority_list)
+void RenderContext::set_surface_format_priority(const std::vector<vk::SurfaceFormatKHR> &new_surface_format_priority_list)
 {
 	this->surface_format_priority_list = new_surface_format_priority_list;
 }
 
-VkFormat RenderContext::get_format()
+vk::Format RenderContext::get_format()
 {
-	VkFormat format = DEFAULT_VK_FORMAT;
+	vk::Format format = DEFAULT_VK_FORMAT;
 
 	if (swapchain)
 	{
@@ -117,7 +117,7 @@ VkFormat RenderContext::get_format()
 	return format;
 }
 
-void RenderContext::update_swapchain(const VkExtent2D &extent)
+void RenderContext::update_swapchain(const vk::Extent2D &extent)
 {
 	if (!swapchain)
 	{
@@ -149,7 +149,7 @@ void RenderContext::update_swapchain(const uint32_t image_count)
 	recreate();
 }
 
-void RenderContext::update_swapchain(const std::set<VkImageUsageFlagBits> &image_usage_flags)
+void RenderContext::update_swapchain(const std::set<vk::ImageUsageFlagBits> &image_usage_flags)
 {
 	if (!swapchain)
 	{
@@ -164,7 +164,7 @@ void RenderContext::update_swapchain(const std::set<VkImageUsageFlagBits> &image
 	recreate();
 }
 
-void RenderContext::update_swapchain(const VkExtent2D &extent, const VkSurfaceTransformFlagBitsKHR transform)
+void RenderContext::update_swapchain(const vk::Extent2D &extent, const vk::SurfaceTransformFlagBitsKHR transform)
 {
 	if (!swapchain)
 	{
@@ -176,13 +176,13 @@ void RenderContext::update_swapchain(const VkExtent2D &extent, const VkSurfaceTr
 
 	auto width  = extent.width;
 	auto height = extent.height;
-	if (transform == VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR || transform == VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)
+	if (transform == vk::SurfaceTransformFlagBitsKHR::eRotate90 || transform == vk::SurfaceTransformFlagBitsKHR::eRotate270)
 	{
 		// Pre-rotation: always use native orientation i.e. if rotated, use width and height of identity transform
 		std::swap(width, height);
 	}
 
-	swapchain = std::make_unique<Swapchain>(*swapchain, VkExtent2D{width, height}, transform);
+	swapchain = std::make_unique<Swapchain>(*swapchain, vk::Extent2D{width, height}, transform);
 
 	// Save the preTransform attribute for future rotations
 	pre_transform = transform;
@@ -194,8 +194,8 @@ void RenderContext::recreate()
 {
 	LOGI("Recreated swapchain");
 
-	VkExtent2D swapchain_extent = swapchain->get_extent();
-	VkExtent3D extent{swapchain_extent.width, swapchain_extent.height, 1};
+	vk::Extent2D swapchain_extent = swapchain->get_extent();
+	vk::Extent3D extent{swapchain_extent.width, swapchain_extent.height, 1};
 
 	auto frame_it = frames.begin();
 
@@ -230,16 +230,12 @@ void RenderContext::handle_surface_changes()
 		return;
 	}
 
-	VkSurfaceCapabilitiesKHR surface_properties;
-	VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.get_physical_device(),
-	                                                   swapchain->get_surface(),
-	                                                   &surface_properties));
+	vk::SurfaceCapabilitiesKHR surface_properties = device.get_physical_device().getSurfaceCapabilitiesKHR(swapchain->get_surface());
 
 	// Only recreate the swapchain if the dimensions have changed;
 	// handle_surface_changes() is called on VK_SUBOPTIMAL_KHR,
 	// which might not be due to a surface resize
-	if (surface_properties.currentExtent.width != surface_extent.width ||
-	    surface_properties.currentExtent.height != surface_extent.height)
+	if (surface_properties.currentExtent != surface_extent)
 	{
 		// Recreate swapchain
 		device.wait_idle();
@@ -256,12 +252,12 @@ CommandBuffer &RenderContext::begin(CommandBuffer::ResetMode reset_mode)
 
 	acquired_semaphore = begin_frame();
 
-	if (acquired_semaphore == VK_NULL_HANDLE)
+	if (!acquired_semaphore)
 	{
 		throw std::runtime_error("Couldn't begin frame");
 	}
 
-	const auto &queue = device.get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT, 0);
+	const auto &queue = device.get_queue_by_flags(vk::QueueFlagBits::eGraphics, 0);
 	return get_active_frame().request_command_buffer(queue, reset_mode);
 }
 
@@ -269,11 +265,11 @@ void RenderContext::submit(CommandBuffer &command_buffer)
 {
 	assert(frame_active && "RenderContext is inactive, cannot submit command buffer. Please call begin()");
 
-	VkSemaphore render_semaphore = VK_NULL_HANDLE;
+	vk::Semaphore render_semaphore;
 
 	if (swapchain)
 	{
-		render_semaphore = submit(queue, command_buffer, acquired_semaphore, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+		render_semaphore = submit(queue, command_buffer, acquired_semaphore, vk::PipelineStageFlagBits::eColorAttachmentOutput);
 	}
 	else
 	{
@@ -282,10 +278,10 @@ void RenderContext::submit(CommandBuffer &command_buffer)
 
 	end_frame(render_semaphore);
 
-	acquired_semaphore = VK_NULL_HANDLE;
+	acquired_semaphore = nullptr;
 }
 
-VkSemaphore RenderContext::begin_frame()
+vk::Semaphore RenderContext::begin_frame()
 {
 	// Only handle surface changes if a swapchain exists
 	if (swapchain)
@@ -305,18 +301,18 @@ VkSemaphore RenderContext::begin_frame()
 
 		auto result = swapchain->acquire_next_image(active_frame_index, aquired_semaphore, fence);
 
-		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
+		if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR)
 		{
 			handle_surface_changes();
 
 			result = swapchain->acquire_next_image(active_frame_index, aquired_semaphore, fence);
 		}
 
-		if (result != VK_SUCCESS)
+		if (result != vk::Result::eSuccess)
 		{
 			prev_frame.reset();
 
-			return VK_NULL_HANDLE;
+			return nullptr;
 		}
 	}
 
@@ -328,15 +324,15 @@ VkSemaphore RenderContext::begin_frame()
 	return aquired_semaphore;
 }
 
-VkSemaphore RenderContext::submit(const Queue &queue, const CommandBuffer &command_buffer, VkSemaphore wait_semaphore, VkPipelineStageFlags wait_pipeline_stage)
+vk::Semaphore RenderContext::submit(const Queue &queue, const CommandBuffer &command_buffer, vk::Semaphore wait_semaphore, vk::PipelineStageFlags wait_pipeline_stage)
 {
 	RenderFrame &frame = get_active_frame();
 
-	VkSemaphore signal_semaphore = frame.request_semaphore();
+	vk::Semaphore signal_semaphore = frame.request_semaphore();
 
-	VkCommandBuffer cmd_buf = command_buffer.get_handle();
+	vk::CommandBuffer cmd_buf = command_buffer.get_handle();
 
-	VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	vk::SubmitInfo submit_info;
 
 	submit_info.commandBufferCount   = 1;
 	submit_info.pCommandBuffers      = &cmd_buf;
@@ -346,9 +342,9 @@ VkSemaphore RenderContext::submit(const Queue &queue, const CommandBuffer &comma
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores    = &signal_semaphore;
 
-	VkFence fence = frame.request_fence();
+	vk::Fence fence = frame.request_fence();
 
-	queue.submit({submit_info}, fence);
+	queue.get_handle().submit(submit_info, fence);
 
 	return signal_semaphore;
 }
@@ -357,16 +353,16 @@ void RenderContext::submit(const Queue &queue, const CommandBuffer &command_buff
 {
 	RenderFrame &frame = get_active_frame();
 
-	VkCommandBuffer cmd_buf = command_buffer.get_handle();
+	vk::CommandBuffer cmd_buf = command_buffer.get_handle();
 
-	VkSubmitInfo submit_info{VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	vk::SubmitInfo submit_info;
 
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers    = &cmd_buf;
 
-	VkFence fence = frame.request_fence();
+	vk::Fence fence = frame.request_fence();
 
-	queue.submit({submit_info}, fence);
+	queue.get_handle().submit(submit_info, fence);
 }
 
 void RenderContext::wait_frame()
@@ -375,15 +371,15 @@ void RenderContext::wait_frame()
 	frame.reset();
 }
 
-void RenderContext::end_frame(VkSemaphore semaphore)
+void RenderContext::end_frame(vk::Semaphore semaphore)
 {
 	assert(frame_active && "Frame is not active, please call begin_frame");
 
 	if (swapchain)
 	{
-		VkSwapchainKHR vk_swapchain = swapchain->get_handle();
+		vk::SwapchainKHR vk_swapchain = swapchain->get_handle();
 
-		VkPresentInfoKHR present_info{VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+		vk::PresentInfoKHR present_info;
 
 		present_info.waitSemaphoreCount = 1;
 		present_info.pWaitSemaphores    = &semaphore;
@@ -391,9 +387,9 @@ void RenderContext::end_frame(VkSemaphore semaphore)
 		present_info.pSwapchains        = &vk_swapchain;
 		present_info.pImageIndices      = &active_frame_index;
 
-		VkResult result = queue.present(present_info);
+		vk::Result result = queue.present(present_info);
 
-		if (result == VK_SUBOPTIMAL_KHR || result == VK_ERROR_OUT_OF_DATE_KHR)
+		if (result == vk::Result::eSuboptimalKHR || result == vk::Result::eErrorOutOfDateKHR)
 		{
 			handle_surface_changes();
 		}
@@ -421,7 +417,7 @@ RenderFrame &RenderContext::get_last_rendered_frame()
 	return frames.at(active_frame_index);
 }
 
-VkSemaphore RenderContext::request_semaphore()
+vk::Semaphore RenderContext::request_semaphore()
 {
 	RenderFrame &frame = get_active_frame();
 	return frame.request_semaphore();
@@ -437,8 +433,8 @@ void RenderContext::recreate_swapchain()
 	device.wait_idle();
 	device.get_resource_cache().clear_framebuffers();
 
-	VkExtent2D swapchain_extent = swapchain->get_extent();
-	VkExtent3D extent{swapchain_extent.width, swapchain_extent.height, 1};
+	vk::Extent2D swapchain_extent = swapchain->get_extent();
+	vk::Extent3D extent{swapchain_extent.width, swapchain_extent.height, 1};
 
 	auto frame_it = frames.begin();
 
@@ -467,7 +463,7 @@ Swapchain &RenderContext::get_swapchain()
 	return *swapchain;
 }
 
-VkExtent2D RenderContext::get_surface_extent() const
+vk::Extent2D RenderContext::get_surface_extent() const
 {
 	return surface_extent;
 }

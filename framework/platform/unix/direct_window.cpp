@@ -224,7 +224,7 @@ DirectWindow::~DirectWindow()
 	}
 }
 
-VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
+vk::SurfaceKHR DirectWindow::create_surface(Instance &instance)
 {
 	if (instance.get_handle() == VK_NULL_HANDLE)
 	{
@@ -239,7 +239,7 @@ VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
 
 	// Query the display properties
 	uint32_t num_displays;
-	VK_CHECK(vkGetPhysicalDeviceDisplayPropertiesKHR(phys_dev, &num_displays, nullptr));
+	vkGetPhysicalDeviceDisplayPropertiesKHR(&num_displays, nullptr);
 
 	if (num_displays == 0)
 	{
@@ -247,18 +247,18 @@ VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
 		return VK_NULL_HANDLE;
 	}
 
-	VkDisplayPropertiesKHR display_properties;
+	vk::DisplayPropertiesKHR display_properties;
 	num_displays = 1;
-	VK_CHECK(vkGetPhysicalDeviceDisplayPropertiesKHR(phys_dev, &num_displays, &display_properties));
+	vkGetPhysicalDeviceDisplayPropertiesKHR(phys_dev, &num_displays, &display_properties);
 
-	VkDisplayKHR display = display_properties.display;
+	vk::DisplayKHR display = display_properties.display;
 
 	// Calculate the display DPI
 	dpi = 25.4f * display_properties.physicalResolution.width / display_properties.physicalDimensions.width;
 
 	// Query display mode properties
 	uint32_t num_modes;
-	VK_CHECK(vkGetDisplayModePropertiesKHR(phys_dev, display, &num_modes, nullptr));
+	vkGetDisplayModePropertiesKHR(phys_dev, display, &num_modes, nullptr);
 
 	if (num_modes == 0)
 	{
@@ -266,13 +266,13 @@ VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
 		return VK_NULL_HANDLE;
 	}
 
-	VkDisplayModePropertiesKHR mode_props;
+	vk::DisplayModePropertiesKHR mode_props;
 	num_modes = 1;
-	VK_CHECK(vkGetDisplayModePropertiesKHR(phys_dev, display, &num_modes, &mode_props));
+	vkGetDisplayModePropertiesKHR(phys_dev, display, &num_modes, &mode_props);
 
 	// Get the list of planes
 	uint32_t num_planes;
-	VK_CHECK(vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_dev, &num_planes, nullptr));
+	vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_dev, &num_planes, nullptr);
 
 	if (num_planes == 0)
 	{
@@ -280,9 +280,9 @@ VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
 		return VK_NULL_HANDLE;
 	}
 
-	std::vector<VkDisplayPlanePropertiesKHR> plane_properties(num_planes);
+	std::vector<vk::DisplayPlanePropertiesKHR> plane_properties(num_planes);
 
-	VK_CHECK(vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_dev, &num_planes, plane_properties.data()));
+	vkGetPhysicalDeviceDisplayPlanePropertiesKHR(phys_dev, &num_planes, plane_properties.data());
 
 	// Find a compatible plane index
 	uint32_t plane_index = find_compatible_plane(phys_dev, display, plane_properties);
@@ -291,27 +291,27 @@ VkSurfaceKHR DirectWindow::create_surface(Instance &instance)
 		return VK_NULL_HANDLE;
 	}
 
-	VkExtent2D image_extent;
+	vk::Extent2D image_extent;
 	image_extent.width  = mode_props.parameters.visibleRegion.width;
 	image_extent.height = mode_props.parameters.visibleRegion.height;
 
-	VkDisplaySurfaceCreateInfoKHR surface_create_info{};
+	vk::DisplaySurfaceCreateInfoKHR surface_create_info;
 	surface_create_info.sType           = VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR;
 	surface_create_info.displayMode     = mode_props.displayMode;
 	surface_create_info.planeIndex      = plane_index;
 	surface_create_info.planeStackIndex = plane_properties[plane_index].currentStackIndex;
-	surface_create_info.transform       = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
+	surface_create_info.transform       = vk::SurfaceTransformFlagBitsKHR::eIdentity;
 	surface_create_info.alphaMode       = VK_DISPLAY_PLANE_ALPHA_OPAQUE_BIT_KHR;
 	surface_create_info.imageExtent     = image_extent;
 
-	VkSurfaceKHR surface;
-	VK_CHECK(vkCreateDisplayPlaneSurfaceKHR(instance.get_handle(), &surface_create_info, nullptr, &surface));
+	vk::SurfaceKHR surface;
+	vkCreateDisplayPlaneSurfaceKHR(instance.get_handle(), &surface_create_info, nullptr, &surface);
 
 	return surface;
 }
 
-uint32_t DirectWindow::find_compatible_plane(VkPhysicalDevice phys_dev, VkDisplayKHR display,
-                                             const std::vector<VkDisplayPlanePropertiesKHR> &plane_properties)
+uint32_t DirectWindow::find_compatible_plane(vk::PhysicalDevice phys_dev, vk::DisplayKHR display,
+                                             const std::vector<vk::DisplayPlanePropertiesKHR> &plane_properties)
 {
 	// Find a plane compatible with the display
 	for (uint32_t pi = 0; pi < plane_properties.size(); ++pi)
@@ -323,16 +323,16 @@ uint32_t DirectWindow::find_compatible_plane(VkPhysicalDevice phys_dev, VkDispla
 		}
 
 		uint32_t num_supported;
-		VK_CHECK(vkGetDisplayPlaneSupportedDisplaysKHR(phys_dev, pi, &num_supported, nullptr));
+		vkGetDisplayPlaneSupportedDisplaysKHR(phys_dev, pi, &num_supported, nullptr);
 
 		if (num_supported == 0)
 		{
 			continue;
 		}
 
-		std::vector<VkDisplayKHR> supported_displays(num_supported);
+		std::vector<vk::DisplayKHR> supported_displays(num_supported);
 
-		VK_CHECK(vkGetDisplayPlaneSupportedDisplaysKHR(phys_dev, pi, &num_supported, supported_displays.data()));
+		vkGetDisplayPlaneSupportedDisplaysKHR(phys_dev, pi, &num_supported, supported_displays.data());
 
 		for (uint32_t i = 0; i < num_supported; ++i)
 		{

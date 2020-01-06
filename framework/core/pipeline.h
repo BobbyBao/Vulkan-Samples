@@ -25,7 +25,7 @@ namespace vkb
 {
 class Device;
 
-class Pipeline
+class Pipeline : public vk::Pipeline
 {
   public:
 	Pipeline(Device &device);
@@ -40,14 +40,12 @@ class Pipeline
 
 	Pipeline &operator=(Pipeline &&) = delete;
 
-	VkPipeline get_handle() const;
+	vk::Pipeline get_handle() const;
 
 	const PipelineState &get_state() const;
 
   protected:
 	Device &device;
-
-	VkPipeline handle = VK_NULL_HANDLE;
 
 	PipelineState state;
 };
@@ -59,9 +57,9 @@ class ComputePipeline : public Pipeline
 
 	virtual ~ComputePipeline() = default;
 
-	ComputePipeline(Device &        device,
-	                VkPipelineCache pipeline_cache,
-	                PipelineState & pipeline_state);
+	ComputePipeline(Device &          device,
+	                vk::PipelineCache pipeline_cache,
+	                PipelineState &   pipeline_state);
 };
 
 class GraphicsPipeline : public Pipeline
@@ -71,8 +69,8 @@ class GraphicsPipeline : public Pipeline
 
 	virtual ~GraphicsPipeline() = default;
 
-	GraphicsPipeline(Device &        device,
-	                 VkPipelineCache pipeline_cache,
-	                 PipelineState & pipeline_state);
+	GraphicsPipeline(Device &          device,
+	                 vk::PipelineCache pipeline_cache,
+	                 PipelineState &   pipeline_state);
 };
 }        // namespace vkb

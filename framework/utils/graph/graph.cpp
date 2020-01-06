@@ -51,26 +51,26 @@ void Graph::remove_edge(size_t from, size_t to)
 	}
 }
 
-size_t Graph::create_vk_image(const VkImage &image)
+size_t Graph::create_vk_image(const vk::Image &image)
 {
-	const void *addr = reinterpret_cast<const void *>(image);
+	const void *addr = reinterpret_cast<const void *>(image.operator VkImage());
 	const void *uid  = get_uid(addr);
 	if (!uid)
 	{
-		auto id    = create_vk_node("VkImage", image);
+		auto id    = create_vk_node("vk::Image", image.operator VkImage());
 		uids[addr] = id;
 		return id;
 	}
 	return reinterpret_cast<size_t>(uid);
 }
 
-size_t Graph::create_vk_image_view(const VkImageView &image)
+size_t Graph::create_vk_image_view(const vk::ImageView &image)
 {
-	const void *addr = reinterpret_cast<const void *>(image);
+	const void *addr = reinterpret_cast<const void *>(image.operator VkImageView());
 	const void *uid  = get_uid(addr);
 	if (!uid)
 	{
-		auto id    = create_vk_node("VkImageView", image);
+		auto id    = create_vk_node("vk::ImageView", image.operator VkImageView());
 		uids[addr] = id;
 		return id;
 	}

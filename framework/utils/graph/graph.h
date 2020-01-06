@@ -76,9 +76,9 @@ class Graph
 		return reinterpret_cast<size_t>(addr);
 	}
 
-	size_t create_vk_image(const VkImage &image);
+	size_t create_vk_image(const vk::Image &image);
 
-	size_t create_vk_image_view(const VkImageView &image);
+	size_t create_vk_image_view(const vk::ImageView &image);
 
 	template <typename T>
 	size_t create_vk_node(const char *name, const T &handle)

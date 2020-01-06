@@ -28,25 +28,25 @@ Pipeline::Pipeline(Device &device) :
 {}
 
 Pipeline::Pipeline(Pipeline &&other) :
+    vk::Pipeline{other},
     device{other.device},
-    handle{other.handle},
     state{other.state}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::Pipeline &>(other) = nullptr;
 }
 
 Pipeline::~Pipeline()
 {
 	// Destroy pipeline
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroyPipeline(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 
-VkPipeline Pipeline::get_handle() const
+vk::Pipeline Pipeline::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Pipeline &>(*this);
 }
 
 const PipelineState &Pipeline::get_state() const
@@ -54,39 +54,34 @@ const PipelineState &Pipeline::get_state() const
 	return state;
 }
 
-ComputePipeline::ComputePipeline(Device &        device,
-                                 VkPipelineCache pipeline_cache,
-                                 PipelineState & pipeline_state) :
+ComputePipeline::ComputePipeline(Device &          device,
+                                 vk::PipelineCache pipeline_cache,
+                                 PipelineState &   pipeline_state) :
     Pipeline{device}
 {
 	const ShaderModule *shader_module = pipeline_state.get_pipeline_layout().get_shader_program().get_shader_modules().front();
 
-	if (shader_module->get_stage() != VK_SHADER_STAGE_COMPUTE_BIT)
+	if (shader_module->get_stage() != vk::ShaderStageFlagBits::eCompute)
 	{
-		throw VulkanException{VK_ERROR_INVALID_SHADER_NV, "Shader module stage is not compute"};
+		vk::throwResultException(vk::Result::eErrorInitializationFailed, "Shader module stage is not compute");
 	}
 
-	VkPipelineShaderStageCreateInfo stage{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+	vk::PipelineShaderStageCreateInfo stage;
 
 	stage.stage = shader_module->get_stage();
 	stage.pName = shader_module->get_entry_point().c_str();
 
 	// Create the Vulkan handle
-	VkShaderModuleCreateInfo vk_create_info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+	vk::ShaderModuleCreateInfo vk_create_info;
 
 	vk_create_info.codeSize = shader_module->get_binary().size() * sizeof(uint32_t);
 	vk_create_info.pCode    = shader_module->get_binary().data();
 
-	VkResult result = vkCreateShaderModule(device.get_handle(), &vk_create_info, nullptr, &stage.module);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result};
-	}
+	stage.module = device.get_handle().createShaderModule(vk_create_info);
 
 	// Create specialization info from tracked state.
-	std::vector<uint8_t>                  data{};
-	std::vector<VkSpecializationMapEntry> map_entries{};
+	std::vector<uint8_t>                    data{};
+	std::vector<vk::SpecializationMapEntry> map_entries{};
 
 	const auto specialization_constant_state = pipeline_state.get_specialization_constant_state().get_specialization_constant_state();
 
@@ -96,7 +91,7 @@ ComputePipeline::ComputePipeline(Device &        device,
 		data.insert(data.end(), specialization_constant.second.begin(), specialization_constant.second.end());
 	}
 
-	VkSpecializationInfo specialization_info{};
+	vk::SpecializationInfo specialization_info;
 	specialization_info.mapEntryCount = to_u32(map_entries.size());
 	specialization_info.pMapEntries   = map_entries.data();
 	specialization_info.dataSize      = data.size();
@@ -104,33 +99,28 @@ ComputePipeline::ComputePipeline(Device &        device,
 
 	stage.pSpecializationInfo = &specialization_info;
 
-	VkComputePipelineCreateInfo create_info{VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO};
+	vk::ComputePipelineCreateInfo create_info;
 
 	create_info.layout = pipeline_state.get_pipeline_layout().get_handle();
 	create_info.stage  = stage;
 
-	result = vkCreateComputePipelines(device.get_handle(), pipeline_cache, 1, &create_info, nullptr, &handle);
+	static_cast<vk::Pipeline &>(*this) = device.get_handle().createComputePipeline(pipeline_cache, create_info);
 
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create ComputePipelines"};
-	}
-
-	vkDestroyShaderModule(device.get_handle(), stage.module, nullptr);
+	device.get_handle().destroy(stage.module);
 }
 
-GraphicsPipeline::GraphicsPipeline(Device &        device,
-                                   VkPipelineCache pipeline_cache,
-                                   PipelineState & pipeline_state) :
+GraphicsPipeline::GraphicsPipeline(Device &          device,
+                                   vk::PipelineCache pipeline_cache,
+                                   PipelineState &   pipeline_state) :
     Pipeline{device}
 {
-	std::vector<VkShaderModule> shader_modules;
+	std::vector<vk::ShaderModule> shader_modules;
 
-	std::vector<VkPipelineShaderStageCreateInfo> stage_create_infos;
+	std::vector<vk::PipelineShaderStageCreateInfo> stage_create_infos;
 
 	// Create specialization info from tracked state. This is shared by all shaders.
-	std::vector<uint8_t>                  data{};
-	std::vector<VkSpecializationMapEntry> map_entries{};
+	std::vector<uint8_t>                    data{};
+	std::vector<vk::SpecializationMapEntry> map_entries{};
 
 	const auto specialization_constant_state = pipeline_state.get_specialization_constant_state().get_specialization_constant_state();
 
@@ -140,7 +130,7 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 		data.insert(data.end(), specialization_constant.second.begin(), specialization_constant.second.end());
 	}
 
-	VkSpecializationInfo specialization_info{};
+	vk::SpecializationInfo specialization_info;
 	specialization_info.mapEntryCount = to_u32(map_entries.size());
 	specialization_info.pMapEntries   = map_entries.data();
 	specialization_info.dataSize      = data.size();
@@ -148,23 +138,18 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 
 	for (const ShaderModule *shader_module : pipeline_state.get_pipeline_layout().get_shader_program().get_shader_modules())
 	{
-		VkPipelineShaderStageCreateInfo stage_create_info{VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO};
+		vk::PipelineShaderStageCreateInfo stage_create_info;
 
 		stage_create_info.stage = shader_module->get_stage();
 		stage_create_info.pName = shader_module->get_entry_point().c_str();
 
 		// Create the Vulkan handle
-		VkShaderModuleCreateInfo vk_create_info{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
+		vk::ShaderModuleCreateInfo vk_create_info;
 
 		vk_create_info.codeSize = shader_module->get_binary().size() * sizeof(uint32_t);
 		vk_create_info.pCode    = shader_module->get_binary().data();
 
-		VkResult result = vkCreateShaderModule(device.get_handle(), &vk_create_info, nullptr, &stage_create_info.module);
-
-		if (result != VK_SUCCESS)
-		{
-			throw VulkanException{result};
-		}
+		stage_create_info.module = device.get_handle().createShaderModule(vk_create_info);
 
 		stage_create_info.pSpecializationInfo = &specialization_info;
 
@@ -172,12 +157,12 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 		shader_modules.push_back(stage_create_info.module);
 	}
 
-	VkGraphicsPipelineCreateInfo create_info{VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO};
+	vk::GraphicsPipelineCreateInfo create_info;
 
 	create_info.stageCount = to_u32(stage_create_infos.size());
 	create_info.pStages    = stage_create_infos.data();
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_state{VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
+	vk::PipelineVertexInputStateCreateInfo vertex_input_state;
 
 	vertex_input_state.pVertexAttributeDescriptions    = pipeline_state.get_vertex_input_state().attributes.data();
 	vertex_input_state.vertexAttributeDescriptionCount = to_u32(pipeline_state.get_vertex_input_state().attributes.size());
@@ -185,17 +170,17 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 	vertex_input_state.pVertexBindingDescriptions    = pipeline_state.get_vertex_input_state().bindings.data();
 	vertex_input_state.vertexBindingDescriptionCount = to_u32(pipeline_state.get_vertex_input_state().bindings.size());
 
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state{VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
+	vk::PipelineInputAssemblyStateCreateInfo input_assembly_state;
 
 	input_assembly_state.topology               = pipeline_state.get_input_assembly_state().topology;
 	input_assembly_state.primitiveRestartEnable = pipeline_state.get_input_assembly_state().primitive_restart_enable;
 
-	VkPipelineViewportStateCreateInfo viewport_state{VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO};
+	vk::PipelineViewportStateCreateInfo viewport_state;
 
 	viewport_state.viewportCount = pipeline_state.get_viewport_state().viewport_count;
 	viewport_state.scissorCount  = pipeline_state.get_viewport_state().scissor_count;
 
-	VkPipelineRasterizationStateCreateInfo rasterization_state{VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
+	vk::PipelineRasterizationStateCreateInfo rasterization_state;
 
 	rasterization_state.depthClampEnable        = pipeline_state.get_rasterization_state().depth_clamp_enable;
 	rasterization_state.rasterizerDiscardEnable = pipeline_state.get_rasterization_state().rasterizer_discard_enable;
@@ -207,7 +192,7 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 	rasterization_state.depthBiasSlopeFactor    = 1.0f;
 	rasterization_state.lineWidth               = 1.0f;
 
-	VkPipelineMultisampleStateCreateInfo multisample_state{VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
+	vk::PipelineMultisampleStateCreateInfo multisample_state;
 
 	multisample_state.sampleShadingEnable   = pipeline_state.get_multisample_state().sample_shading_enable;
 	multisample_state.rasterizationSamples  = pipeline_state.get_multisample_state().rasterization_samples;
@@ -220,7 +205,7 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 		multisample_state.pSampleMask = &pipeline_state.get_multisample_state().sample_mask;
 	}
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state{VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
+	vk::PipelineDepthStencilStateCreateInfo depth_stencil_state;
 
 	depth_stencil_state.depthTestEnable       = pipeline_state.get_depth_stencil_state().depth_test_enable;
 	depth_stencil_state.depthWriteEnable      = pipeline_state.get_depth_stencil_state().depth_write_enable;
@@ -242,30 +227,30 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 	depth_stencil_state.back.writeMask        = ~0U;
 	depth_stencil_state.back.reference        = ~0U;
 
-	VkPipelineColorBlendStateCreateInfo color_blend_state{VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO};
+	vk::PipelineColorBlendStateCreateInfo color_blend_state;
 
 	color_blend_state.logicOpEnable     = pipeline_state.get_color_blend_state().logic_op_enable;
 	color_blend_state.logicOp           = pipeline_state.get_color_blend_state().logic_op;
 	color_blend_state.attachmentCount   = to_u32(pipeline_state.get_color_blend_state().attachments.size());
-	color_blend_state.pAttachments      = reinterpret_cast<const VkPipelineColorBlendAttachmentState *>(pipeline_state.get_color_blend_state().attachments.data());
+	color_blend_state.pAttachments      = reinterpret_cast<const vk::PipelineColorBlendAttachmentState *>(pipeline_state.get_color_blend_state().attachments.data());
 	color_blend_state.blendConstants[0] = 1.0f;
 	color_blend_state.blendConstants[1] = 1.0f;
 	color_blend_state.blendConstants[2] = 1.0f;
 	color_blend_state.blendConstants[3] = 1.0f;
 
-	std::array<VkDynamicState, 9> dynamic_states{
-	    VK_DYNAMIC_STATE_VIEWPORT,
-	    VK_DYNAMIC_STATE_SCISSOR,
-	    VK_DYNAMIC_STATE_LINE_WIDTH,
-	    VK_DYNAMIC_STATE_DEPTH_BIAS,
-	    VK_DYNAMIC_STATE_BLEND_CONSTANTS,
-	    VK_DYNAMIC_STATE_DEPTH_BOUNDS,
-	    VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK,
-	    VK_DYNAMIC_STATE_STENCIL_WRITE_MASK,
-	    VK_DYNAMIC_STATE_STENCIL_REFERENCE,
+	std::array<vk::DynamicState, 9> dynamic_states{
+	    vk::DynamicState::eViewport,
+	    vk::DynamicState::eScissor,
+	    vk::DynamicState::eLineWidth,
+	    vk::DynamicState::eDepthBias,
+	    vk::DynamicState::eBlendConstants,
+	    vk::DynamicState::eDepthBounds,
+	    vk::DynamicState::eStencilCompareMask,
+	    vk::DynamicState::eStencilWriteMask,
+	    vk::DynamicState::eStencilReference,
 	};
 
-	VkPipelineDynamicStateCreateInfo dynamic_state{VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
+	vk::PipelineDynamicStateCreateInfo dynamic_state;
 
 	dynamic_state.pDynamicStates    = dynamic_states.data();
 	dynamic_state.dynamicStateCount = to_u32(dynamic_states.size());
@@ -283,16 +268,11 @@ GraphicsPipeline::GraphicsPipeline(Device &        device,
 	create_info.renderPass = pipeline_state.get_render_pass()->get_handle();
 	create_info.subpass    = pipeline_state.get_subpass_index();
 
-	auto result = vkCreateGraphicsPipelines(device.get_handle(), pipeline_cache, 1, &create_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create GraphicsPipelines"};
-	}
+	static_cast<vk::Pipeline &>(*this) = device.get_handle().createGraphicsPipeline(pipeline_cache, create_info);
 
 	for (auto shader_module : shader_modules)
 	{
-		vkDestroyShaderModule(device.get_handle(), shader_module, nullptr);
+		device.get_handle().destroy(shader_module);
 	}
 
 	state = pipeline_state;

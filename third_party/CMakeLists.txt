@@ -48,6 +48,7 @@ target_sources(vulkan INTERFACE ${VULKAN_INCLUDE_DIR}/vulkan/vulkan.h)
 target_include_directories(vulkan INTERFACE ${VULKAN_INCLUDE_DIR})
 
 target_compile_definitions(vulkan INTERFACE VK_NO_PROTOTYPES)
+target_compile_definitions(vulkan INTERFACE VULKAN_HPP_DISPATCH_LOADER_DYNAMIC=1)
 
 
 if(ANDROID)
@@ -74,6 +75,13 @@ set(VMA_DIR ${CMAKE_CURRENT_SOURCE_DIR}/vma/src)
 target_sources(vma INTERFACE ${VMA_DIR}/vk_mem_alloc.h)
 target_include_directories(vma INTERFACE ${VMA_DIR})
 target_link_libraries(vma INTERFACE vulkan)
+
+find_package(OpenMP)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(vulkan INTERFACE OpenMP::OpenMP_CXX)
+    target_compile_definitions(vulkan INTERFACE HAVE_OPENMP)
+endif()
+
 
 # libktx
 set(KTX_DIR ${CMAKE_CURRENT_SOURCE_DIR}/ktx)

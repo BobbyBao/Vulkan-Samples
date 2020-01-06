@@ -91,6 +91,6 @@ sg::Light &add_directional_light(sg::Scene &scene, const glm::quat &rotation, co
  * @param extent The initial resolution of the camera
  * @return Node where the script was attached as component
  */
-sg::Node &add_free_camera(sg::Scene &scene, const std::string &node_name, VkExtent2D extent);
+sg::Node &add_free_camera(sg::Scene &scene, const std::string &node_name, vk::Extent2D extent);
 
 }        // namespace vkb

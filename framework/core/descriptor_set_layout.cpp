@@ -24,43 +24,43 @@ namespace vkb
 {
 namespace
 {
-inline VkDescriptorType find_descriptor_type(ShaderResourceType resource_type, bool dynamic)
+inline vk::DescriptorType find_descriptor_type(ShaderResourceType resource_type, bool dynamic)
 {
 	switch (resource_type)
 	{
 		case ShaderResourceType::InputAttachment:
-			return VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT;
+			return vk::DescriptorType::eInputAttachment;
 			break;
 		case ShaderResourceType::Image:
-			return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+			return vk::DescriptorType::eSampledImage;
 			break;
 		case ShaderResourceType::ImageSampler:
-			return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			return vk::DescriptorType::eCombinedImageSampler;
 			break;
 		case ShaderResourceType::ImageStorage:
-			return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+			return vk::DescriptorType::eStorageImage;
 			break;
 		case ShaderResourceType::Sampler:
-			return VK_DESCRIPTOR_TYPE_SAMPLER;
+			return vk::DescriptorType::eSampler;
 			break;
 		case ShaderResourceType::BufferUniform:
 			if (dynamic)
 			{
-				return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+				return vk::DescriptorType::eUniformBufferDynamic;
 			}
 			else
 			{
-				return VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+				return vk::DescriptorType::eUniformBuffer;
 			}
 			break;
 		case ShaderResourceType::BufferStorage:
 			if (dynamic)
 			{
-				return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
+				return vk::DescriptorType::eStorageBufferDynamic;
 			}
 			else
 			{
-				return VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+				return vk::DescriptorType::eStorageBuffer;
 			}
 			break;
 		default:
@@ -87,13 +87,13 @@ DescriptorSetLayout::DescriptorSetLayout(Device &device, const std::vector<Shade
 		// Convert from ShaderResourceType to VkDescriptorType.
 		auto descriptor_type = find_descriptor_type(resource.type, use_dynamic_resources);
 
-		// Convert ShaderResource to VkDescriptorSetLayoutBinding
-		VkDescriptorSetLayoutBinding layout_binding{};
+		// Convert ShaderResource to vk::DescriptorSetLayoutBinding
+		vk::DescriptorSetLayoutBinding layout_binding;
 
 		layout_binding.binding         = resource.binding;
 		layout_binding.descriptorCount = resource.array_size;
 		layout_binding.descriptorType  = descriptor_type;
-		layout_binding.stageFlags      = static_cast<VkShaderStageFlags>(resource.stages);
+		layout_binding.stageFlags      = static_cast<vk::ShaderStageFlags>(resource.stages);
 
 		bindings.push_back(layout_binding);
 
@@ -103,50 +103,45 @@ DescriptorSetLayout::DescriptorSetLayout(Device &device, const std::vector<Shade
 		resources_lookup.emplace(resource.name, resource.binding);
 	}
 
-	VkDescriptorSetLayoutCreateInfo create_info{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO};
+	vk::DescriptorSetLayoutCreateInfo create_info;
 
 	create_info.bindingCount = to_u32(bindings.size());
 	create_info.pBindings    = bindings.data();
 
 	// Create the Vulkan descriptor set layout handle
-	VkResult result = vkCreateDescriptorSetLayout(device.get_handle(), &create_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create DescriptorSetLayout"};
-	}
+	static_cast<vk::DescriptorSetLayout &>(*this) = device.get_handle().createDescriptorSetLayout(create_info);
 }
 
 DescriptorSetLayout::DescriptorSetLayout(DescriptorSetLayout &&other) :
+    vk::DescriptorSetLayout{other},
     device{other.device},
-    handle{other.handle},
     bindings{std::move(other.bindings)},
     bindings_lookup{std::move(other.bindings_lookup)},
     resources_lookup{std::move(other.resources_lookup)}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::DescriptorSetLayout &&>(other) = nullptr;
 }
 
 DescriptorSetLayout::~DescriptorSetLayout()
 {
 	// Destroy descriptor set layout
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroyDescriptorSetLayout(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 
-VkDescriptorSetLayout DescriptorSetLayout::get_handle() const
+const vk::DescriptorSetLayout &DescriptorSetLayout::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::DescriptorSetLayout &>(*this);
 }
 
-const std::vector<VkDescriptorSetLayoutBinding> &DescriptorSetLayout::get_bindings() const
+const std::vector<vk::DescriptorSetLayoutBinding> &DescriptorSetLayout::get_bindings() const
 {
 	return bindings;
 }
 
-std::unique_ptr<VkDescriptorSetLayoutBinding> DescriptorSetLayout::get_layout_binding(uint32_t binding_index) const
+std::unique_ptr<vk::DescriptorSetLayoutBinding> DescriptorSetLayout::get_layout_binding(uint32_t binding_index) const
 {
 	auto it = bindings_lookup.find(binding_index);
 
@@ -155,10 +150,10 @@ std::unique_ptr<VkDescriptorSetLayoutBinding> DescriptorSetLayout::get_layout_bi
 		return nullptr;
 	}
 
-	return std::make_unique<VkDescriptorSetLayoutBinding>(it->second);
+	return std::make_unique<vk::DescriptorSetLayoutBinding>(it->second);
 }
 
-std::unique_ptr<VkDescriptorSetLayoutBinding> DescriptorSetLayout::get_layout_binding(const std::string &name) const
+std::unique_ptr<vk::DescriptorSetLayoutBinding> DescriptorSetLayout::get_layout_binding(const std::string &name) const
 {
 	auto it = resources_lookup.find(name);
 

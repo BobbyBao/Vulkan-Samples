@@ -36,7 +36,7 @@ class DirectWindow : public Window
 
 	virtual ~DirectWindow();
 
-	virtual VkSurfaceKHR create_surface(Instance &instance) override;
+	virtual vk::SurfaceKHR create_surface(Instance &instance) override;
 
 	virtual bool should_close() override;
 
@@ -49,8 +49,8 @@ class DirectWindow : public Window
   private:
 	void poll_terminal();
 
-	uint32_t find_compatible_plane(VkPhysicalDevice phys_dev, VkDisplayKHR display,
-	                               const std::vector<VkDisplayPlanePropertiesKHR> &plane_properties);
+	uint32_t find_compatible_plane(vk::PhysicalDevice phys_dev, vk::DisplayKHR display,
+	                               const std::vector<vk::DisplayPlanePropertiesKHR> &plane_properties);
 
   private:
 	mutable bool   keep_running = true;

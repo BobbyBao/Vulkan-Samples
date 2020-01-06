@@ -29,7 +29,7 @@ namespace core
 /**
  * @brief Represents a Vulkan Sampler
  */
-class Sampler
+class Sampler : protected vk::Sampler
 {
   public:
 	/**
@@ -37,7 +37,7 @@ class Sampler
 	 * @param d The device to use
 	 * @param info Creation details
 	 */
-	Sampler(Device &d, const VkSamplerCreateInfo &info);
+	Sampler(Device &d, const vk::SamplerCreateInfo &info);
 
 	Sampler(const Sampler &) = delete;
 
@@ -52,12 +52,10 @@ class Sampler
 	/**
 	 * @return The vulkan sampler handle
 	 */
-	VkSampler get_handle() const;
+	vk::Sampler get_handle() const;
 
   private:
 	Device &device;
-
-	VkSampler handle{VK_NULL_HANDLE};
 };
 }        // namespace core
 }        // namespace vkb

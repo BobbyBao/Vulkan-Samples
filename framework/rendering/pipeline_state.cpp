@@ -17,12 +17,12 @@
 
 #include "pipeline_state.h"
 
-bool operator==(const VkVertexInputAttributeDescription &lhs, const VkVertexInputAttributeDescription &rhs)
+bool operator==(const vk::VertexInputAttributeDescription &lhs, const vk::VertexInputAttributeDescription &rhs)
 {
 	return std::tie(lhs.binding, lhs.format, lhs.location, lhs.offset) == std::tie(rhs.binding, rhs.format, rhs.location, rhs.offset);
 }
 
-bool operator==(const VkVertexInputBindingDescription &lhs, const VkVertexInputBindingDescription &rhs)
+bool operator==(const vk::VertexInputBindingDescription &lhs, const vk::VertexInputBindingDescription &rhs)
 {
 	return std::tie(lhs.binding, lhs.inputRate, lhs.stride) == std::tie(rhs.binding, rhs.inputRate, rhs.stride);
 }

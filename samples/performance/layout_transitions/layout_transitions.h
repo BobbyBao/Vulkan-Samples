@@ -51,7 +51,7 @@ class LayoutTransitions : public vkb::VulkanSample
 
 	virtual void draw_gui() override;
 
-	VkImageLayout pick_old_layout(VkImageLayout last_layout);
+	vk::ImageLayout pick_old_layout(vk::ImageLayout last_layout);
 
 	vkb::RenderPipeline gbuffer_pipeline;
 

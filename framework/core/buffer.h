@@ -26,22 +26,22 @@ class Device;
 
 namespace core
 {
-class Buffer
+class Buffer : protected vk::Buffer
 {
   public:
 	/**
 	 * @brief Creates a buffer using VMA
 	 * @param device A valid Vulkan device
 	 * @param size The size in bytes of the buffer
-	 * @param buffer_usage The usage flags for the VkBuffer
+	 * @param buffer_usage The usage flags for the vk::Buffer
 	 * @param memory_usage The memory usage of the buffer
 	 * @param flags The allocation create flags
 	 */
-	Buffer(Device &                 device,
-	       VkDeviceSize             size,
-	       VkBufferUsageFlags       buffer_usage,
-	       VmaMemoryUsage           memory_usage,
-	       VmaAllocationCreateFlags flags = VMA_ALLOCATION_CREATE_MAPPED_BIT);
+	Buffer(Device &                     device,
+	       vk::DeviceSize               size,
+	       vk::BufferUsageFlags         buffer_usage,
+	       vma::MemoryUsage             memory_usage,
+	       vma::Allocation::CreateFlags flags = vma::Allocation::CreateFlagBits::eMapped);
 
 	Buffer(const Buffer &) = delete;
 
@@ -55,13 +55,13 @@ class Buffer
 
 	const Device &get_device() const;
 
-	VkBuffer get_handle() const;
+	const vk::Buffer &get_handle() const;
 
-	const VkBuffer *get() const;
+	const vk::Buffer *get() const;
 
 	VmaAllocation get_allocation() const;
 
-	VkDeviceMemory get_memory() const;
+	vk::DeviceMemory get_memory() const;
 
 	/**
 	 * @brief Flushes memory if it is HOST_VISIBLE and not HOST_COHERENT
@@ -82,7 +82,7 @@ class Buffer
 	/**
 	 * @return The size of the buffer
 	 */
-	VkDeviceSize get_size() const;
+	vk::DeviceSize get_size() const;
 
 	const uint8_t *get_data() const
 	{
@@ -126,20 +126,18 @@ class Buffer
   private:
 	Device &device;
 
-	VkBuffer handle{VK_NULL_HANDLE};
+	vma::Allocation allocation;
 
-	VmaAllocation allocation{VK_NULL_HANDLE};
+	vk::DeviceMemory memory;
 
-	VkDeviceMemory memory{VK_NULL_HANDLE};
-
-	VkDeviceSize size{0};
+	vk::DeviceSize size{0};
 
 	uint8_t *mapped_data{nullptr};
 
 	/// Whether the buffer is persistently mapped or not
 	bool persistent{false};
 
-	/// Whether the buffer has been mapped with vmaMapMemory
+	/// Whether the buffer has been mapped
 	bool mapped{false};
 };
 }        // namespace core

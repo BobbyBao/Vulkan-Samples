@@ -33,10 +33,9 @@
 class PushDescriptors : public ApiVulkanSample
 {
   public:
-	bool animate = true;
+	bool animate{true};
 
-	PFN_vkCmdPushDescriptorSetKHR               vkCmdPushDescriptorSetKHR;
-	VkPhysicalDevicePushDescriptorPropertiesKHR push_descriptor_properties{};
+	vk::PhysicalDevicePushDescriptorPropertiesKHR push_descriptor_properties;
 
 	struct Cube
 	{
@@ -63,9 +62,9 @@ class PushDescriptors : public ApiVulkanSample
 		glm::mat4 view;
 	} ubo_scene;
 
-	VkPipeline            pipeline;
-	VkPipelineLayout      pipeline_layout;
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::Pipeline            pipeline;
+	vk::PipelineLayout      pipeline_layout;
+	vk::DescriptorSetLayout descriptor_set_layout;
 
 	PushDescriptors();
 	~PushDescriptors();

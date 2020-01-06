@@ -33,7 +33,7 @@ class BufferAllocation
   public:
 	BufferAllocation() = default;
 
-	BufferAllocation(core::Buffer &buffer, VkDeviceSize size, VkDeviceSize offset);
+	BufferAllocation(core::Buffer &buffer, vk::DeviceSize size, vk::DeviceSize offset);
 
 	BufferAllocation(const BufferAllocation &) = delete;
 
@@ -55,18 +55,18 @@ class BufferAllocation
 
 	bool empty() const;
 
-	VkDeviceSize get_size() const;
+	vk::DeviceSize get_size() const;
 
-	VkDeviceSize get_offset() const;
+	vk::DeviceSize get_offset() const;
 
 	core::Buffer &get_buffer();
 
   private:
 	core::Buffer *buffer{nullptr};
 
-	VkDeviceSize base_offset{0};
+	vk::DeviceSize base_offset{0};
 
-	VkDeviceSize size{0};
+	vk::DeviceSize size{0};
 };
 
 /**
@@ -75,14 +75,14 @@ class BufferAllocation
 class BufferBlock
 {
   public:
-	BufferBlock(Device &device, VkDeviceSize size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage);
+	BufferBlock(Device &device, vk::DeviceSize size, vk::BufferUsageFlags usage, vma::MemoryUsage memory_usage);
 
 	/**
 	 * @return An usable view on a portion of the underlying buffer
 	 */
 	BufferAllocation allocate(uint32_t size);
 
-	VkDeviceSize get_size() const;
+	vk::DeviceSize get_size() const;
 
 	void reset();
 
@@ -90,10 +90,10 @@ class BufferBlock
 	core::Buffer buffer;
 
 	// Memory alignment, it may change according to the usage
-	VkDeviceSize alignment{0};
+	vk::DeviceSize alignment{0};
 
 	// Current offset, it increases on every allocation
-	VkDeviceSize offset{0};
+	vk::DeviceSize offset{0};
 };
 
 /**
@@ -101,7 +101,7 @@ class BufferBlock
  * It may contain inactive blocks that can be recycled.
  *
  * BufferPool is a linear allocator for buffer chunks, it gives you a view of the size you want.
- * A BufferBlock is the corresponding VkBuffer and you can get smaller offsets inside it.
+ * A BufferBlock is the corresponding vk::Buffer and you can get smaller offsets inside it.
  * Since a shader cannot specify dynamic UBOs, it has to be done from the code
  * (set_resource_dynamic).
  *
@@ -110,14 +110,18 @@ class BufferBlock
  * buffer allocation.
  *
  * We re-use descriptor sets: we only need one for the corresponding buffer infos (and we only
- * have one VkBuffer per BufferBlock), then it is bound and we use dynamic offsets.
+ * have one vk::Buffer per BufferBlock), then it is bound and we use dynamic offsets.
  */
 class BufferPool
 {
   public:
-	BufferPool(Device &device, VkDeviceSize block_size, VkBufferUsageFlags usage, VmaMemoryUsage memory_usage = VMA_MEMORY_USAGE_CPU_TO_GPU);
+	BufferPool(Device &device, vk::DeviceSize block_size, vk::BufferUsageFlags usage, vma::MemoryUsage memory_usage = vma::MemoryUsage::eCpuToGpu);
 
-	BufferBlock &request_buffer_block(VkDeviceSize minimum_size);
+	BufferPool(const BufferPool &) = delete;
+
+	BufferPool(BufferPool &&);
+
+	BufferBlock &request_buffer_block(vk::DeviceSize minimum_size);
 
 	void reset();
 
@@ -128,11 +132,11 @@ class BufferPool
 	std::vector<std::unique_ptr<BufferBlock>> buffer_blocks;
 
 	/// Minimum size of the blocks
-	VkDeviceSize block_size{0};
+	vk::DeviceSize block_size{0};
 
-	VkBufferUsageFlags usage{};
+	vk::BufferUsageFlags usage;
 
-	VmaMemoryUsage memory_usage{};
+	vma::MemoryUsage memory_usage;
 
 	/// Numbers of active blocks from the start of buffer_blocks
 	uint32_t active_buffer_block_count{0};

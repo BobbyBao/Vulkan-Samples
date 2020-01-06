@@ -40,7 +40,7 @@ class PipelineCache : public vkb::VulkanSample
   private:
 	vkb::sg::Camera *camera{nullptr};
 
-	VkPipelineCache pipeline_cache{VK_NULL_HANDLE};
+	vk::PipelineCache pipeline_cache;
 
 	ImVec2 button_size{150, 30};
 

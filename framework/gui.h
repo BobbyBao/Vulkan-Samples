@@ -345,7 +345,7 @@ class Gui
 	 */
 	~Gui();
 
-	void prepare(const VkPipelineCache pipeline_cache, const VkRenderPass render_pass, const std::vector<VkPipelineShaderStageCreateInfo> &shader_stages);
+	void prepare(const vk::PipelineCache pipeline_cache, const vk::RenderPass render_pass, const std::vector<vk::PipelineShaderStageCreateInfo> &shader_stages);
 
 	/**
 	 * @brief Handles resizing of the window
@@ -378,7 +378,7 @@ class Gui
 	 * @brief Draws the Gui
 	 * @param command_buffer Command buffer to register draw-commands
 	 */
-	void draw(VkCommandBuffer command_buffer);
+	void draw(vk::CommandBuffer command_buffer);
 
 	/**
 	 * @brief Shows an overlay top window with app info and maybe stats
@@ -488,13 +488,13 @@ class Gui
 
 	DebugView debug_view;
 
-	VkDescriptorPool descriptor_pool{VK_NULL_HANDLE};
+	vk::DescriptorPool descriptor_pool;
 
-	VkDescriptorSetLayout descriptor_set_layout{VK_NULL_HANDLE};
+	vk::DescriptorSetLayout descriptor_set_layout;
 
-	VkDescriptorSet descriptor_set{VK_NULL_HANDLE};
+	vk::DescriptorSet descriptor_set;
 
-	VkPipeline pipeline{VK_NULL_HANDLE};
+	vk::Pipeline pipeline;
 
 	/// Used to measure duration of input events
 	Timer timer;

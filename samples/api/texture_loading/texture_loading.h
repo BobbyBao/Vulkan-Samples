@@ -40,13 +40,13 @@ class TextureLoading : public ApiVulkanSample
 	// Note that this repository contains a texture class (vulkan_texture.h) that encapsulates texture loading functionality in a class that is used in subsequent demos
 	struct Texture
 	{
-		VkSampler      sampler;
-		VkImage        image;
-		VkImageLayout  image_layout;
-		VkDeviceMemory device_memory;
-		VkImageView    view;
-		uint32_t       width, height;
-		uint32_t       mip_levels;
+		vk::Sampler      sampler;
+		vk::Image        image;
+		vk::ImageLayout  image_layout;
+		vk::DeviceMemory device_memory;
+		vk::ImageView    view;
+		uint32_t         width, height;
+		uint32_t         mip_levels;
 	} texture;
 
 	std::unique_ptr<vkb::core::Buffer> vertex_buffer;
@@ -65,12 +65,12 @@ class TextureLoading : public ApiVulkanSample
 
 	struct
 	{
-		VkPipeline solid;
+		vk::Pipeline solid;
 	} pipelines;
 
-	VkPipelineLayout      pipeline_layout;
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::PipelineLayout      pipeline_layout;
+	vk::DescriptorSet       descriptor_set;
+	vk::DescriptorSetLayout descriptor_set_layout;
 
 	TextureLoading();
 	~TextureLoading();

@@ -139,26 +139,26 @@ void RenderPassesSample::draw_renderpass(vkb::CommandBuffer &command_buffer, vkb
 	std::vector<vkb::LoadStoreInfo> load_store{2};
 
 	// The load operation for the color attachment is selected by the user at run-time
-	auto loadop            = static_cast<VkAttachmentLoadOp>(load.value);
+	auto loadop            = static_cast<vk::AttachmentLoadOp>(load.value);
 	load_store[0].load_op  = loadop;
-	load_store[0].store_op = VK_ATTACHMENT_STORE_OP_STORE;
+	load_store[0].store_op = vk::AttachmentStoreOp::eStore;
 
-	load_store[1].load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	load_store[1].load_op = vk::AttachmentLoadOp::eClear;
 	// Store operation for depth attachment is selected by the user at run-time
-	load_store[1].store_op = static_cast<VkAttachmentStoreOp>(store.value);
+	load_store[1].store_op = static_cast<vk::AttachmentStoreOp>(store.value);
 
 	get_render_pipeline().set_load_store(load_store);
 
 	auto &extent = render_target.get_extent();
 
-	VkViewport viewport{};
+	vk::Viewport viewport;
 	viewport.width    = static_cast<float>(extent.width);
 	viewport.height   = static_cast<float>(extent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	command_buffer.set_viewport(0, {viewport});
 
-	VkRect2D scissor{};
+	vk::Rect2D scissor;
 	scissor.extent = extent;
 	command_buffer.set_scissor(0, {scissor});
 
@@ -167,15 +167,13 @@ void RenderPassesSample::draw_renderpass(vkb::CommandBuffer &command_buffer, vkb
 
 	if (cmd_clear)
 	{
-		VkClearAttachment attachment = {};
+		vk::ClearAttachment attachment = {};
 		// Clear color only
-		attachment.aspectMask      = VK_IMAGE_ASPECT_COLOR_BIT;
-		attachment.clearValue      = {0, 0, 0};
-		attachment.colorAttachment = 0;
+		attachment.aspectMask = vk::ImageAspectFlagBits::eColor;
 
-		VkClearRect rect = {};
-		rect.layerCount  = 1;
-		rect.rect.extent = extent;
+		vk::ClearRect rect = {};
+		rect.layerCount    = 1;
+		rect.rect.extent   = extent;
 
 		command_buffer.clear(attachment, rect);
 	}

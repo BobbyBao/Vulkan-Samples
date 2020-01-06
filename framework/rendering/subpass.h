@@ -139,7 +139,7 @@ class Subpass
 		});
 
 		auto &           render_frame = get_render_context().get_active_frame();
-		BufferAllocation light_buffer = render_frame.allocate_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(T));
+		BufferAllocation light_buffer = render_frame.allocate_buffer(vk::BufferUsageFlagBits::eUniformBuffer, sizeof(T));
 		light_buffer.update(light_info);
 
 		return light_buffer;
@@ -176,7 +176,7 @@ class Subpass
 		std::copy(lights_vector.begin(), lights_vector.end(), light_info.lights);
 
 		auto &           render_frame = get_render_context().get_active_frame();
-		BufferAllocation light_buffer = render_frame.allocate_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(T));
+		BufferAllocation light_buffer = render_frame.allocate_buffer(vk::BufferUsageFlagBits::eUniformBuffer, sizeof(T));
 		light_buffer.update(light_info);
 
 		return light_buffer;

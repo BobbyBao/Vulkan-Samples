@@ -56,7 +56,7 @@ class RenderContext
 {
   public:
 	// The format to use for the RenderTargets if a swapchain isn't created
-	static VkFormat DEFAULT_VK_FORMAT;
+	static vk::Format DEFAULT_VK_FORMAT;
 
 	/**
 	 * @brief Constructor
@@ -65,7 +65,7 @@ class RenderContext
 	 * @param window_width The width of the window where the surface was created
 	 * @param window_height The height of the window where the surface was created
 	 */
-	RenderContext(Device &device, VkSurfaceKHR surface, uint32_t window_width, uint32_t window_height);
+	RenderContext(Device &device, vk::SurfaceKHR surface, uint32_t window_width, uint32_t window_height);
 
 	RenderContext(const RenderContext &) = delete;
 
@@ -80,22 +80,22 @@ class RenderContext
 	/**
 	 * @brief Requests to set the present mode of the swapchain, must be called before prepare
 	 */
-	void request_present_mode(const VkPresentModeKHR present_mode);
+	void request_present_mode(const vk::PresentModeKHR present_mode);
 
 	/**
 	 * @brief Requests to set a specific image format for the swapchain
 	 */
-	void request_image_format(const VkFormat format);
+	void request_image_format(const vk::Format format);
 
 	/**
 	 * @brief Sets the order in which the swapchain prioritizes selecting its present mode
 	 */
-	void set_present_mode_priority(const std::vector<VkPresentModeKHR> &present_mode_priority_list);
+	void set_present_mode_priority(const std::vector<vk::PresentModeKHR> &present_mode_priority_list);
 
 	/**
 	 * @brief Sets the order in which the swapchain prioritizes selecting its surface format
 	 */
-	void set_surface_format_priority(const std::vector<VkSurfaceFormatKHR> &surface_format_priority_list);
+	void set_surface_format_priority(const std::vector<vk::SurfaceFormatKHR> &surface_format_priority_list);
 
 	/**
 	 * @brief Prepares the RenderFrames for rendering
@@ -108,7 +108,7 @@ class RenderContext
 	 * @brief Updates the swapchains extent, if a swapchain exists
 	 * @param extent The width and height of the new swapchain images
 	 */
-	void update_swapchain(const VkExtent2D &extent);
+	void update_swapchain(const vk::Extent2D &extent);
 
 	/**
 	 * @brief Updates the swapchains image count, if a swapchain exists
@@ -120,14 +120,14 @@ class RenderContext
 	 * @brief Updates the swapchains image usage, if a swapchain exists
 	 * @param image_usage_flags The usage flags the new swapchain images will have
 	 */
-	void update_swapchain(const std::set<VkImageUsageFlagBits> &image_usage_flags);
+	void update_swapchain(const std::set<vk::ImageUsageFlagBits> &image_usage_flags);
 
 	/**
 	 * @brief Updates the swapchains extent and surface transform, if a swapchain exists
 	 * @param extent The width and height of the new swapchain images
 	 * @param transform The surface transform flags
 	 */
-	void update_swapchain(const VkExtent2D &extent, const VkSurfaceTransformFlagBitsKHR transform);
+	void update_swapchain(const vk::Extent2D &extent, const vk::SurfaceTransformFlagBitsKHR transform);
 
 	/**
 	 * @returns True if a valid swapchain exists in the RenderContext
@@ -160,11 +160,11 @@ class RenderContext
 	/**
 	 * @brief begin_frame
 	 *
-	 * @return VkSemaphore
+	 * @return vk::Semaphore
 	 */
-	VkSemaphore begin_frame();
+	vk::Semaphore begin_frame();
 
-	VkSemaphore submit(const Queue &queue, const CommandBuffer &command_buffer, VkSemaphore wait_semaphore, VkPipelineStageFlags wait_pipeline_stage);
+	vk::Semaphore submit(const Queue &queue, const CommandBuffer &command_buffer, vk::Semaphore wait_semaphore, vk::PipelineStageFlags wait_pipeline_stage);
 
 	/**
 	 * @brief Submits a command buffer related to a frame to a queue
@@ -176,7 +176,7 @@ class RenderContext
 	 */
 	virtual void wait_frame();
 
-	void end_frame(VkSemaphore semaphore);
+	void end_frame(vk::Semaphore semaphore);
 
 	/**
 	 * @brief An error should be raised if the frame is not active.
@@ -199,18 +199,18 @@ class RenderContext
 	 */
 	RenderFrame &get_last_rendered_frame();
 
-	VkSemaphore request_semaphore();
+	vk::Semaphore request_semaphore();
 
 	Device &get_device();
 
 	/**
 	 * @brief Returns the format that the RenderTargets are created with within the RenderContext
 	 */
-	VkFormat get_format();
+	vk::Format get_format();
 
 	Swapchain &get_swapchain();
 
-	VkExtent2D get_surface_extent() const;
+	vk::Extent2D get_surface_extent() const;
 
 	uint32_t get_active_frame_index() const;
 
@@ -222,7 +222,7 @@ class RenderContext
 	virtual void handle_surface_changes();
 
   protected:
-	VkExtent2D surface_extent;
+	vk::Extent2D surface_extent;
 
   private:
 	Device &device;
@@ -235,20 +235,22 @@ class RenderContext
 	SwapchainProperties swapchain_properties;
 
 	// A list of present modes in order of priority (vector[0] has high priority, vector[size-1] has low priority)
-	std::vector<VkPresentModeKHR> present_mode_priority_list = {
-	    VK_PRESENT_MODE_FIFO_KHR,
-	    VK_PRESENT_MODE_MAILBOX_KHR};
+	std::vector<vk::PresentModeKHR> present_mode_priority_list = {
+	    vk::PresentModeKHR::eFifo,
+	    vk::PresentModeKHR::eMailbox,
+	};
 
 	// A list of surface formats in order of priority (vector[0] has high priority, vector[size-1] has low priority)
-	std::vector<VkSurfaceFormatKHR> surface_format_priority_list = {
-	    {VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	    {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	    {VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	    {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}};
+	std::vector<vk::SurfaceFormatKHR> surface_format_priority_list = {
+	    {vk::Format::eR8G8B8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
+	};
 
 	std::vector<RenderFrame> frames;
 
-	VkSemaphore acquired_semaphore;
+	vk::Semaphore acquired_semaphore;
 
 	bool prepared{false};
 
@@ -260,7 +262,7 @@ class RenderContext
 
 	RenderTarget::CreateFunc create_render_target_func = RenderTarget::DEFAULT_CREATE_FUNC;
 
-	VkSurfaceTransformFlagBitsKHR pre_transform{VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR};
+	vk::SurfaceTransformFlagBitsKHR pre_transform{vk::SurfaceTransformFlagBitsKHR::eIdentity};
 
 	size_t thread_count{1};
 };

@@ -156,90 +156,35 @@ Gui::Gui(VulkanSample &sample_, const float dpi_factor, const float font_size, b
 	size_t upload_size = tex_width * tex_height * 4 * sizeof(char);
 
 	auto &device = sample.get_render_context().get_device();
-
-	// Create target image for copy
-	VkExtent3D font_extent{to_u32(tex_width), to_u32(tex_height), 1u};
-	font_image      = std::make_unique<core::Image>(device, font_extent, VK_FORMAT_R8G8B8A8_UNORM,
-                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                                               VMA_MEMORY_USAGE_GPU_ONLY);
-	font_image_view = std::make_unique<core::ImageView>(*font_image, VK_IMAGE_VIEW_TYPE_2D);
+	vk::Extent3D font_extent{to_u32(tex_width), to_u32(tex_height), 1u};
 
 	// Upload font data into the vulkan image memory
-	{
-		core::Buffer stage_buffer{device, upload_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY, 0};
-		stage_buffer.update({font_data, font_data + upload_size});
+	font_image = std::make_unique<core::Image>(
+	    device.stage_to_device_image(
+	        font_data, upload_size,
+	        font_extent, vk::Format::eR8G8B8A8Unorm,
+	        vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
+	        vma::MemoryUsage::eGpuOnly));
 
-		auto &command_buffer = device.request_command_buffer();
-
-		FencePool fence_pool{device};
-
-		// Begin recording
-		command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT, 0);
-
-		{
-			// Prepare for transfer
-			ImageMemoryBarrier memory_barrier{};
-			memory_barrier.old_layout      = VK_IMAGE_LAYOUT_UNDEFINED;
-			memory_barrier.new_layout      = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			memory_barrier.src_access_mask = 0;
-			memory_barrier.dst_access_mask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_HOST_BIT;
-			memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			command_buffer.image_memory_barrier(*font_image_view, memory_barrier);
-		}
-
-		// Copy
-		VkBufferImageCopy buffer_copy_region{};
-		buffer_copy_region.imageSubresource.layerCount = font_image_view->get_subresource_range().layerCount;
-		buffer_copy_region.imageSubresource.aspectMask = font_image_view->get_subresource_range().aspectMask;
-		buffer_copy_region.imageExtent                 = font_image->get_extent();
-
-		command_buffer.copy_buffer_to_image(stage_buffer, *font_image, {buffer_copy_region});
-
-		{
-			// Prepare for fragmen shader
-			ImageMemoryBarrier memory_barrier{};
-			memory_barrier.old_layout      = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			memory_barrier.new_layout      = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			memory_barrier.src_access_mask = 0;
-			memory_barrier.dst_access_mask = VK_ACCESS_SHADER_READ_BIT;
-			memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_TRANSFER_BIT;
-			memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-			command_buffer.image_memory_barrier(*font_image_view, memory_barrier);
-		}
-
-		// End recording
-		command_buffer.end();
-
-		auto &queue = device.get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT, 0);
-
-		queue.submit(command_buffer, device.request_fence());
-
-		// Wait for the command buffer to finish its work before destroying the staging buffer
-		device.get_fence_pool().wait();
-		device.get_fence_pool().reset();
-		device.get_command_pool().reset_pool();
-	}
+	font_image_view = std::make_unique<core::ImageView>(*font_image, vk::ImageViewType::e2D);
 
 	// Create texture sampler
-	VkSamplerCreateInfo sampler_info{VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+	vk::SamplerCreateInfo sampler_info;
 	sampler_info.maxAnisotropy = 1.0f;
-	sampler_info.magFilter     = VK_FILTER_LINEAR;
-	sampler_info.minFilter     = VK_FILTER_LINEAR;
-	sampler_info.mipmapMode    = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	sampler_info.addressModeU  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeV  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeW  = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.borderColor   = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
+	sampler_info.magFilter     = vk::Filter::eLinear;
+	sampler_info.minFilter     = vk::Filter::eLinear;
+	sampler_info.mipmapMode    = vk::SamplerMipmapMode::eNearest;
+	sampler_info.addressModeU  = vk::SamplerAddressMode::eClampToEdge;
+	sampler_info.addressModeV  = vk::SamplerAddressMode::eClampToEdge;
+	sampler_info.addressModeW  = vk::SamplerAddressMode::eClampToEdge;
+	sampler_info.borderColor   = vk::BorderColor::eFloatOpaqueWhite;
 
 	vkb::ShaderSource vert_shader("imgui.vert");
 	vkb::ShaderSource frag_shader("imgui.frag");
 
 	std::vector<vkb::ShaderModule *> shader_modules;
-	shader_modules.push_back(&device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_VERTEX_BIT, vert_shader, {}));
-	shader_modules.push_back(&device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_FRAGMENT_BIT, frag_shader, {}));
+	shader_modules.push_back(&device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eVertex, vert_shader, {}));
+	shader_modules.push_back(&device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eFragment, frag_shader, {}));
 
 	pipeline_layout = &device.get_resource_cache().request_pipeline_layout(shader_modules, false);
 
@@ -247,74 +192,78 @@ Gui::Gui(VulkanSample &sample_, const float dpi_factor, const float font_size, b
 
 	if (explicit_update)
 	{
-		vertex_buffer = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), 1, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
-		index_buffer  = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), 1, VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
+		vertex_buffer = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), 1, vk::BufferUsageFlagBits::eVertexBuffer, vma::MemoryUsage::eGpuToCpu);
+		index_buffer  = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), 1, vk::BufferUsageFlagBits::eIndexBuffer, vma::MemoryUsage::eGpuToCpu);
 	}
 }
 
-void Gui::prepare(const VkPipelineCache pipeline_cache, const VkRenderPass render_pass, const std::vector<VkPipelineShaderStageCreateInfo> &shader_stages)
+void Gui::prepare(const vk::PipelineCache pipeline_cache, const vk::RenderPass render_pass, const std::vector<vk::PipelineShaderStageCreateInfo> &shader_stages)
 {
+	const auto &device = sample.get_render_context().get_device().get_handle();
 	// Descriptor pool
-	std::vector<VkDescriptorPoolSize> pool_sizes = {
-	    vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1)};
-	VkDescriptorPoolCreateInfo descriptorPoolInfo = vkb::initializers::descriptor_pool_create_info(pool_sizes, 2);
-	VK_CHECK(vkCreateDescriptorPool(sample.get_render_context().get_device().get_handle(), &descriptorPoolInfo, nullptr, &descriptor_pool));
+	std::vector<vk::DescriptorPoolSize> pool_sizes = {
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eCombinedImageSampler, 1)};
+	vk::DescriptorPoolCreateInfo descriptorPoolInfo = vkb::initializers::descriptor_pool_create_info(pool_sizes, 2);
+	descriptor_pool                                 = device.createDescriptorPool(descriptorPoolInfo);
 
 	// Descriptor set layout
-	std::vector<VkDescriptorSetLayoutBinding> layout_bindings = {
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
+	std::vector<vk::DescriptorSetLayoutBinding> layout_bindings = {
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 0),
 	};
-	VkDescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = vkb::initializers::descriptor_set_layout_create_info(layout_bindings);
-	VK_CHECK(vkCreateDescriptorSetLayout(sample.get_render_context().get_device().get_handle(), &descriptor_set_layout_create_info, nullptr, &descriptor_set_layout));
+	vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info = vkb::initializers::descriptor_set_layout_create_info(layout_bindings);
+	descriptor_set_layout                                               = device.createDescriptorSetLayout(descriptor_set_layout_create_info);
 
 	// Descriptor set
-	VkDescriptorSetAllocateInfo descriptor_allocation = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layout, 1);
-	VK_CHECK(vkAllocateDescriptorSets(sample.get_render_context().get_device().get_handle(), &descriptor_allocation, &descriptor_set));
-	VkDescriptorImageInfo font_descriptor = vkb::initializers::descriptor_image_info(
+	vk::DescriptorSetAllocateInfo descriptor_allocation = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layout, 1);
+	descriptor_set                                      = device.allocateDescriptorSets(descriptor_allocation)[0];
+
+	vk::DescriptorImageInfo font_descriptor = vkb::initializers::descriptor_image_info(
 	    sampler->get_handle(),
 	    font_image_view->get_handle(),
-	    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-	std::vector<VkWriteDescriptorSet> write_descriptor_sets = {
-	    vkb::initializers::write_descriptor_set(descriptor_set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &font_descriptor)};
-	vkUpdateDescriptorSets(sample.get_render_context().get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, nullptr);
+	    vk::ImageLayout::eShaderReadOnlyOptimal);
+	std::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
+	    vkb::initializers::write_descriptor_set(descriptor_set, vk::DescriptorType::eCombinedImageSampler, 0, &font_descriptor),
+	};
+	device.updateDescriptorSets(write_descriptor_sets, nullptr);
 
 	// Setup graphics pipeline for UI rendering
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state =
-	    vkb::initializers::pipeline_input_assembly_state_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, 0, VK_FALSE);
+	vk::PipelineInputAssemblyStateCreateInfo input_assembly_state =
+	    vkb::initializers::pipeline_input_assembly_state_create_info();
 
-	VkPipelineRasterizationStateCreateInfo rasterization_state =
-	    vkb::initializers::pipeline_rasterization_state_create_info(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+	vk::PipelineRasterizationStateCreateInfo rasterization_state =
+	    vkb::initializers::pipeline_rasterization_state_create_info(vk::PolygonMode::eFill, vk::CullModeFlagBits::eNone, vk::FrontFace::eCounterClockwise);
 
 	// Enable blending
-	VkPipelineColorBlendAttachmentState blend_attachment_state{};
+	vk::PipelineColorBlendAttachmentState blend_attachment_state;
 	blend_attachment_state.blendEnable         = VK_TRUE;
-	blend_attachment_state.colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-	blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	blend_attachment_state.colorBlendOp        = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-	blend_attachment_state.alphaBlendOp        = VK_BLEND_OP_ADD;
+	blend_attachment_state.colorWriteMask      = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
+	blend_attachment_state.srcColorBlendFactor = vk::BlendFactor::eSrcAlpha;
+	blend_attachment_state.dstColorBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+	blend_attachment_state.colorBlendOp        = vk::BlendOp::eAdd;
+	blend_attachment_state.srcAlphaBlendFactor = vk::BlendFactor::eOneMinusSrcAlpha;
+	blend_attachment_state.dstAlphaBlendFactor = vk::BlendFactor::eZero;
+	blend_attachment_state.alphaBlendOp        = vk::BlendOp::eAdd;
 
-	VkPipelineColorBlendStateCreateInfo color_blend_state =
+	vk::PipelineColorBlendStateCreateInfo color_blend_state =
 	    vkb::initializers::pipeline_color_blend_state_create_info(1, &blend_attachment_state);
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state =
-	    vkb::initializers::pipeline_depth_stencil_state_create_info(VK_FALSE, VK_FALSE, VK_COMPARE_OP_ALWAYS);
+	vk::PipelineDepthStencilStateCreateInfo depth_stencil_state =
+	    vkb::initializers::pipeline_depth_stencil_state_create_info();
 
-	VkPipelineViewportStateCreateInfo viewport_state =
-	    vkb::initializers::pipeline_viewport_state_create_info(1, 1, 0);
+	vk::PipelineViewportStateCreateInfo viewport_state =
+	    vkb::initializers::pipeline_viewport_state_create_info();
 
-	VkPipelineMultisampleStateCreateInfo multisample_state =
-	    vkb::initializers::pipeline_multisample_state_create_info(VK_SAMPLE_COUNT_1_BIT);
+	vk::PipelineMultisampleStateCreateInfo multisample_state =
+	    vkb::initializers::pipeline_multisample_state_create_info();
 
-	std::vector<VkDynamicState> dynamic_state_enables = {
-	    VK_DYNAMIC_STATE_VIEWPORT,
-	    VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamic_state =
+	std::vector<vk::DynamicState> dynamic_state_enables = {
+	    vk::DynamicState::eViewport,
+	    vk::DynamicState::eScissor,
+	};
+	vk::PipelineDynamicStateCreateInfo dynamic_state =
 	    vkb::initializers::pipeline_dynamic_state_create_info(dynamic_state_enables);
 
-	VkGraphicsPipelineCreateInfo pipeline_create_info = vkb::initializers::pipeline_create_info(pipeline_layout->get_handle(), render_pass);
+	vk::GraphicsPipelineCreateInfo pipeline_create_info = vkb::initializers::pipeline_create_info(pipeline_layout->get_handle(), render_pass);
 
 	pipeline_create_info.pInputAssemblyState = &input_assembly_state;
 	pipeline_create_info.pRasterizationState = &rasterization_state;
@@ -328,23 +277,23 @@ void Gui::prepare(const VkPipelineCache pipeline_cache, const VkRenderPass rende
 	pipeline_create_info.subpass             = 0;
 
 	// Vertex bindings an attributes based on ImGui vertex definition
-	std::vector<VkVertexInputBindingDescription> vertex_input_bindings = {
-	    vkb::initializers::vertex_input_binding_description(0, sizeof(ImDrawVert), VK_VERTEX_INPUT_RATE_VERTEX),
+	std::vector<vk::VertexInputBindingDescription> vertex_input_bindings = {
+	    vkb::initializers::vertex_input_binding_description(0, sizeof(ImDrawVert)),
 	};
-	std::vector<VkVertexInputAttributeDescription> vertex_input_attributes = {
-	    vkb::initializers::vertex_input_attribute_description(0, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, pos)),         // Location 0: Position
-	    vkb::initializers::vertex_input_attribute_description(0, 1, VK_FORMAT_R32G32_SFLOAT, offsetof(ImDrawVert, uv)),          // Location 1: UV
-	    vkb::initializers::vertex_input_attribute_description(0, 2, VK_FORMAT_R8G8B8A8_UNORM, offsetof(ImDrawVert, col)),        // Location 0: Color
+	std::vector<vk::VertexInputAttributeDescription> vertex_input_attributes = {
+	    vkb::initializers::vertex_input_attribute_description(0, 0, vk::Format::eR32G32Sfloat, offsetof(ImDrawVert, pos)),         // Location 0: Position
+	    vkb::initializers::vertex_input_attribute_description(0, 1, vk::Format::eR32G32Sfloat, offsetof(ImDrawVert, uv)),          // Location 1: UV
+	    vkb::initializers::vertex_input_attribute_description(0, 2, vk::Format::eR8G8B8A8Unorm, offsetof(ImDrawVert, col)),        // Location 0: Color
 	};
-	VkPipelineVertexInputStateCreateInfo vertex_input_state_create_info = vkb::initializers::pipeline_vertex_input_state_create_info();
-	vertex_input_state_create_info.vertexBindingDescriptionCount        = static_cast<uint32_t>(vertex_input_bindings.size());
-	vertex_input_state_create_info.pVertexBindingDescriptions           = vertex_input_bindings.data();
-	vertex_input_state_create_info.vertexAttributeDescriptionCount      = static_cast<uint32_t>(vertex_input_attributes.size());
-	vertex_input_state_create_info.pVertexAttributeDescriptions         = vertex_input_attributes.data();
+	vk::PipelineVertexInputStateCreateInfo vertex_input_state_create_info = vkb::initializers::pipeline_vertex_input_state_create_info();
+	vertex_input_state_create_info.vertexBindingDescriptionCount          = static_cast<uint32_t>(vertex_input_bindings.size());
+	vertex_input_state_create_info.pVertexBindingDescriptions             = vertex_input_bindings.data();
+	vertex_input_state_create_info.vertexAttributeDescriptionCount        = static_cast<uint32_t>(vertex_input_attributes.size());
+	vertex_input_state_create_info.pVertexAttributeDescriptions           = vertex_input_attributes.data();
 
 	pipeline_create_info.pVertexInputState = &vertex_input_state_create_info;
 
-	VK_CHECK(vkCreateGraphicsPipelines(sample.get_render_context().get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipeline));
+	pipeline = device.createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 }        // namespace vkb
 
 void Gui::update(const float delta_time)
@@ -387,26 +336,26 @@ bool Gui::update_buffers()
 		return false;
 	}
 
-	if ((vertex_buffer->get_handle() == VK_NULL_HANDLE) || (vertex_buffer_size != last_vertex_buffer_size))
+	if ((vertex_buffer->get_handle().operator VkBuffer() == VK_NULL_HANDLE) || (vertex_buffer_size != last_vertex_buffer_size))
 	{
 		last_vertex_buffer_size = vertex_buffer_size;
 		updated                 = true;
 
 		vertex_buffer.reset();
 		vertex_buffer = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), vertex_buffer_size,
-		                                               VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-		                                               VMA_MEMORY_USAGE_GPU_TO_CPU);
+		                                               vk::BufferUsageFlagBits::eVertexBuffer,
+		                                               vma::MemoryUsage::eGpuToCpu);
 	}
 
-	if ((index_buffer->get_handle() == VK_NULL_HANDLE) || (index_buffer_size != last_index_buffer_size))
+	if ((index_buffer->get_handle().operator VkBuffer() == VK_NULL_HANDLE) || (index_buffer_size != last_index_buffer_size))
 	{
 		last_index_buffer_size = index_buffer_size;
 		updated                = true;
 
 		index_buffer.reset();
-		index_buffer = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), vertex_buffer_size,
-		                                              VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
-		                                              VMA_MEMORY_USAGE_GPU_TO_CPU);
+		index_buffer = std::make_unique<core::Buffer>(sample.get_render_context().get_device(), index_buffer_size,
+		                                              vk::BufferUsageFlagBits::eIndexBuffer,
+		                                              vma::MemoryUsage::eGpuToCpu);
 	}
 
 	// Upload data
@@ -443,22 +392,22 @@ void Gui::update_buffers(CommandBuffer &command_buffer, RenderFrame &render_fram
 
 	upload_draw_data(draw_data, vertex_data.data(), index_data.data());
 
-	auto vertex_allocation = sample.get_render_context().get_active_frame().allocate_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertex_buffer_size);
+	auto vertex_allocation = sample.get_render_context().get_active_frame().allocate_buffer(vk::BufferUsageFlagBits::eVertexBuffer, vertex_buffer_size);
 
 	vertex_allocation.update(vertex_data);
 
-	std::vector<std::reference_wrapper<const core::Buffer>> buffers;
-	buffers.emplace_back(std::ref(vertex_allocation.get_buffer()));
+	std::vector<vk::Buffer> buffers;
+	buffers.emplace_back(std::ref(vertex_allocation.get_buffer().get_handle()));
 
-	std::vector<VkDeviceSize> offsets{vertex_allocation.get_offset()};
+	std::vector<vk::DeviceSize> offsets{vertex_allocation.get_offset()};
 
 	command_buffer.bind_vertex_buffers(0, buffers, offsets);
 
-	auto index_allocation = sample.get_render_context().get_active_frame().allocate_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, index_buffer_size);
+	auto index_allocation = sample.get_render_context().get_active_frame().allocate_buffer(vk::BufferUsageFlagBits::eIndexBuffer, index_buffer_size);
 
 	index_allocation.update(index_data);
 
-	command_buffer.bind_index_buffer(index_allocation.get_buffer(), index_allocation.get_offset(), VK_INDEX_TYPE_UINT16);
+	command_buffer.bind_index_buffer(index_allocation.get_buffer(), index_allocation.get_offset(), vk::IndexType::eUint16);
 }
 
 void Gui::resize(const uint32_t width, const uint32_t height) const
@@ -476,24 +425,24 @@ void Gui::draw(CommandBuffer &command_buffer)
 	}
 
 	// Vertex input state
-	VkVertexInputBindingDescription vertex_input_binding{};
+	vk::VertexInputBindingDescription vertex_input_binding;
 	vertex_input_binding.stride = to_u32(sizeof(ImDrawVert));
 
 	// Location 0: Position
-	VkVertexInputAttributeDescription pos_attr{};
-	pos_attr.format = VK_FORMAT_R32G32_SFLOAT;
+	vk::VertexInputAttributeDescription pos_attr;
+	pos_attr.format = vk::Format::eR32G32Sfloat;
 	pos_attr.offset = to_u32(offsetof(ImDrawVert, pos));
 
 	// Location 1: UV
-	VkVertexInputAttributeDescription uv_attr{};
+	vk::VertexInputAttributeDescription uv_attr;
 	uv_attr.location = 1;
-	uv_attr.format   = VK_FORMAT_R32G32_SFLOAT;
+	uv_attr.format   = vk::Format::eR32G32Sfloat;
 	uv_attr.offset   = to_u32(offsetof(ImDrawVert, uv));
 
 	// Location 2: Color
-	VkVertexInputAttributeDescription col_attr{};
+	vk::VertexInputAttributeDescription col_attr;
 	col_attr.location = 2;
-	col_attr.format   = VK_FORMAT_R8G8B8A8_UNORM;
+	col_attr.format   = vk::Format::eR8G8B8A8Unorm;
 	col_attr.offset   = to_u32(offsetof(ImDrawVert, col));
 
 	VertexInputState vertex_input_state{};
@@ -505,10 +454,10 @@ void Gui::draw(CommandBuffer &command_buffer)
 	// Blend state
 	vkb::ColorBlendAttachmentState color_attachment{};
 	color_attachment.blend_enable           = VK_TRUE;
-	color_attachment.color_write_mask       = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT;
-	color_attachment.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA;
-	color_attachment.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_attachment.src_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_attachment.color_write_mask       = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB;
+	color_attachment.src_color_blend_factor = vk::BlendFactor::eSrcAlpha;
+	color_attachment.dst_color_blend_factor = vk::BlendFactor::eOneMinusSrcAlpha;
+	color_attachment.src_alpha_blend_factor = vk::BlendFactor::eOneMinusSrcAlpha;
 
 	vkb::ColorBlendState blend_state{};
 	blend_state.attachments = {color_attachment};
@@ -516,7 +465,7 @@ void Gui::draw(CommandBuffer &command_buffer)
 	command_buffer.set_color_blend_state(blend_state);
 
 	vkb::RasterizationState rasterization_state{};
-	rasterization_state.cull_mode = VK_CULL_MODE_NONE;
+	rasterization_state.cull_mode = vk::CullModeFlagBits::eNone;
 	command_buffer.set_rasterization_state(rasterization_state);
 
 	vkb::DepthStencilState depth_state{};
@@ -538,15 +487,15 @@ void Gui::draw(CommandBuffer &command_buffer)
 		auto transform = sample.get_render_context().get_swapchain().get_transform();
 
 		glm::vec3 rotation_axis = glm::vec3(0.0f, 0.0f, 1.0f);
-		if (transform & VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR)
+		if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate90)
 		{
 			push_transform = glm::rotate(push_transform, glm::radians(90.0f), rotation_axis);
 		}
-		else if (transform & VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)
+		else if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate270)
 		{
 			push_transform = glm::rotate(push_transform, glm::radians(270.0f), rotation_axis);
 		}
-		else if (transform & VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR)
+		else if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate180)
 		{
 			push_transform = glm::rotate(push_transform, glm::radians(180.0f), rotation_axis);
 		}
@@ -566,11 +515,11 @@ void Gui::draw(CommandBuffer &command_buffer)
 	}
 	else
 	{
-		std::vector<std::reference_wrapper<const vkb::core::Buffer>> buffers;
-		buffers.push_back(*vertex_buffer);
+		std::vector<vk::Buffer> buffers;
+		buffers.push_back(vertex_buffer->get_handle());
 		command_buffer.bind_vertex_buffers(0, buffers, {0});
 
-		command_buffer.bind_index_buffer(*index_buffer, 0, VK_INDEX_TYPE_UINT16);
+		command_buffer.bind_index_buffer(*index_buffer, 0, vk::IndexType::eUint16);
 	}
 
 	// Render commands
@@ -589,7 +538,7 @@ void Gui::draw(CommandBuffer &command_buffer)
 		for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
 		{
 			const ImDrawCmd *cmd = &cmd_list->CmdBuffer[j];
-			VkRect2D         scissor_rect;
+			vk::Rect2D       scissor_rect;
 			scissor_rect.offset.x      = std::max(static_cast<int32_t>(cmd->ClipRect.x), 0);
 			scissor_rect.offset.y      = std::max(static_cast<int32_t>(cmd->ClipRect.y), 0);
 			scissor_rect.extent.width  = static_cast<uint32_t>(cmd->ClipRect.z - cmd->ClipRect.x);
@@ -599,21 +548,21 @@ void Gui::draw(CommandBuffer &command_buffer)
 			if (sample.get_render_context().has_swapchain())
 			{
 				auto transform = sample.get_render_context().get_swapchain().get_transform();
-				if (transform & VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR)
+				if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate90)
 				{
 					scissor_rect.offset.x      = static_cast<uint32_t>(io.DisplaySize.y - cmd->ClipRect.w);
 					scissor_rect.offset.y      = static_cast<uint32_t>(cmd->ClipRect.x);
 					scissor_rect.extent.width  = static_cast<uint32_t>(cmd->ClipRect.w - cmd->ClipRect.y);
 					scissor_rect.extent.height = static_cast<uint32_t>(cmd->ClipRect.z - cmd->ClipRect.x);
 				}
-				else if (transform & VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR)
+				else if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate180)
 				{
 					scissor_rect.offset.x      = static_cast<uint32_t>(io.DisplaySize.x - cmd->ClipRect.z);
 					scissor_rect.offset.y      = static_cast<uint32_t>(io.DisplaySize.y - cmd->ClipRect.w);
 					scissor_rect.extent.width  = static_cast<uint32_t>(cmd->ClipRect.z - cmd->ClipRect.x);
 					scissor_rect.extent.height = static_cast<uint32_t>(cmd->ClipRect.w - cmd->ClipRect.y);
 				}
-				else if (transform & VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)
+				else if (transform & vk::SurfaceTransformFlagBitsKHR::eRotate270)
 				{
 					scissor_rect.offset.x      = static_cast<uint32_t>(cmd->ClipRect.y);
 					scissor_rect.offset.y      = static_cast<uint32_t>(io.DisplaySize.x - cmd->ClipRect.z);
@@ -630,7 +579,7 @@ void Gui::draw(CommandBuffer &command_buffer)
 	}
 }
 
-void Gui::draw(VkCommandBuffer command_buffer)
+void Gui::draw(vk::CommandBuffer command_buffer)
 {
 	if (!visible)
 	{
@@ -647,22 +596,20 @@ void Gui::draw(VkCommandBuffer command_buffer)
 		return;
 	}
 
-	vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-	vkCmdBindDescriptorSets(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout->get_handle(), 0, 1, &descriptor_set, 0, NULL);
+	command_buffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline);
+	command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layout->get_handle(), 0, 1, &descriptor_set, 0, NULL);
 
 	// Push constants
 	auto push_transform = glm::mat4(1.0f);
 	push_transform      = glm::translate(push_transform, glm::vec3(-1.0f, -1.0f, 0.0f));
 	push_transform      = glm::scale(push_transform, glm::vec3(2.0f / io.DisplaySize.x, 2.0f / io.DisplaySize.y, 0.0f));
-	vkCmdPushConstants(command_buffer, pipeline_layout->get_handle(), VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &push_transform);
+	command_buffer.pushConstants<glm::mat4>(pipeline_layout->get_handle(), vk::ShaderStageFlagBits::eVertex, 0, push_transform);
 
-	VkDeviceSize offsets[1] = {0};
+	vk::Buffer vertex_buffer_handle = vertex_buffer->get_handle();
+	command_buffer.bindVertexBuffers(0, vertex_buffer_handle, {0});
 
-	VkBuffer vertex_buffer_handle = vertex_buffer->get_handle();
-	vkCmdBindVertexBuffers(command_buffer, 0, 1, &vertex_buffer_handle, offsets);
-
-	VkBuffer index_buffer_handle = index_buffer->get_handle();
-	vkCmdBindIndexBuffer(command_buffer, index_buffer_handle, 0, VK_INDEX_TYPE_UINT16);
+	vk::Buffer index_buffer_handle = index_buffer->get_handle();
+	command_buffer.bindIndexBuffer(index_buffer_handle, 0, vk::IndexType::eUint16);
 
 	for (int32_t i = 0; i < draw_data->CmdListsCount; i++)
 	{
@@ -670,14 +617,14 @@ void Gui::draw(VkCommandBuffer command_buffer)
 		for (int32_t j = 0; j < cmd_list->CmdBuffer.Size; j++)
 		{
 			const ImDrawCmd *cmd = &cmd_list->CmdBuffer[j];
-			VkRect2D         scissor_rect;
+			vk::Rect2D       scissor_rect;
 			scissor_rect.offset.x      = std::max(static_cast<int32_t>(cmd->ClipRect.x), 0);
 			scissor_rect.offset.y      = std::max(static_cast<int32_t>(cmd->ClipRect.y), 0);
 			scissor_rect.extent.width  = static_cast<uint32_t>(cmd->ClipRect.z - cmd->ClipRect.x);
 			scissor_rect.extent.height = static_cast<uint32_t>(cmd->ClipRect.w - cmd->ClipRect.y);
 
-			vkCmdSetScissor(command_buffer, 0, 1, &scissor_rect);
-			vkCmdDrawIndexed(command_buffer, cmd->ElemCount, 1, index_offset, vertex_offset, 0);
+			command_buffer.setScissor(0, scissor_rect);
+			command_buffer.drawIndexed(cmd->ElemCount, 1, index_offset, vertex_offset, 0);
 			index_offset += cmd->ElemCount;
 		}
 		vertex_offset += cmd_list->VtxBuffer.Size;
@@ -686,9 +633,10 @@ void Gui::draw(VkCommandBuffer command_buffer)
 
 Gui::~Gui()
 {
-	vkDestroyDescriptorPool(sample.get_render_context().get_device().get_handle(), descriptor_pool, nullptr);
-	vkDestroyDescriptorSetLayout(sample.get_render_context().get_device().get_handle(), descriptor_set_layout, nullptr);
-	vkDestroyPipeline(sample.get_render_context().get_device().get_handle(), pipeline, nullptr);
+	auto &device = sample.get_render_context().get_device().get_handle();
+	device.destroy(descriptor_pool);
+	device.destroy(descriptor_set_layout);
+	device.destroy(pipeline);
 
 	ImGui::DestroyContext();
 }

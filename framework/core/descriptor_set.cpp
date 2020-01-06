@@ -24,15 +24,15 @@
 
 namespace vkb
 {
-DescriptorSet::DescriptorSet(Device &                                  device,
-                             DescriptorSetLayout &                     descriptor_set_layout,
-                             DescriptorPool &                          descriptor_pool,
-                             const BindingMap<VkDescriptorBufferInfo> &buffer_infos,
-                             const BindingMap<VkDescriptorImageInfo> & image_infos) :
+DescriptorSet::DescriptorSet(Device &                                    device,
+                             DescriptorSetLayout &                       descriptor_set_layout,
+                             DescriptorPool &                            descriptor_pool,
+                             const BindingMap<vk::DescriptorBufferInfo> &buffer_infos,
+                             const BindingMap<vk::DescriptorImageInfo> & image_infos) :
+    vk::DescriptorSet{descriptor_pool.allocate()},
     device{device},
     descriptor_set_layout{descriptor_set_layout},
-    descriptor_pool{descriptor_pool},
-    handle{descriptor_pool.allocate()}
+    descriptor_pool{descriptor_pool}
 {
 	if (!buffer_infos.empty() || !image_infos.empty())
 	{
@@ -40,12 +40,12 @@ DescriptorSet::DescriptorSet(Device &                                  device,
 	}
 }
 
-void DescriptorSet::update(const BindingMap<VkDescriptorBufferInfo> &buffer_infos, const BindingMap<VkDescriptorImageInfo> &image_infos)
+void DescriptorSet::update(const BindingMap<vk::DescriptorBufferInfo> &buffer_infos, const BindingMap<vk::DescriptorImageInfo> &image_infos)
 {
 	this->buffer_infos = buffer_infos;
 	this->image_infos  = image_infos;
 
-	std::vector<VkWriteDescriptorSet> set_updates;
+	std::vector<vk::WriteDescriptorSet> set_updates;
 
 	// Iterate over all buffer bindings
 	for (auto &binding_it : buffer_infos)
@@ -61,12 +61,12 @@ void DescriptorSet::update(const BindingMap<VkDescriptorBufferInfo> &buffer_info
 				auto  arrayElement = element_it.first;
 				auto &buffer_info  = element_it.second;
 
-				VkWriteDescriptorSet write_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				vk::WriteDescriptorSet write_descriptor_set;
 
 				write_descriptor_set.dstBinding      = binding;
 				write_descriptor_set.descriptorType  = binding_info->descriptorType;
 				write_descriptor_set.pBufferInfo     = &buffer_info;
-				write_descriptor_set.dstSet          = handle;
+				write_descriptor_set.dstSet          = *this;
 				write_descriptor_set.dstArrayElement = arrayElement;
 				write_descriptor_set.descriptorCount = 1;
 
@@ -93,12 +93,12 @@ void DescriptorSet::update(const BindingMap<VkDescriptorBufferInfo> &buffer_info
 				auto  arrayElement = element_it.first;
 				auto &image_info   = element_it.second;
 
-				VkWriteDescriptorSet write_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+				vk::WriteDescriptorSet write_descriptor_set;
 
 				write_descriptor_set.dstBinding      = binding_index;
 				write_descriptor_set.descriptorType  = binding_info->descriptorType;
 				write_descriptor_set.pImageInfo      = &image_info;
-				write_descriptor_set.dstSet          = handle;
+				write_descriptor_set.dstSet          = *this;
 				write_descriptor_set.dstArrayElement = arrayElement;
 				write_descriptor_set.descriptorCount = 1;
 
@@ -111,23 +111,23 @@ void DescriptorSet::update(const BindingMap<VkDescriptorBufferInfo> &buffer_info
 		}
 	}
 
-	vkUpdateDescriptorSets(device.get_handle(), to_u32(set_updates.size()), set_updates.data(), 0, nullptr);
+	device.get_handle().updateDescriptorSets(set_updates, nullptr);
 }
 
 DescriptorSet::DescriptorSet(DescriptorSet &&other) :
+    vk::DescriptorSet{other},
     device{other.device},
     descriptor_set_layout{other.descriptor_set_layout},
     descriptor_pool{other.descriptor_pool},
     buffer_infos{std::move(other.buffer_infos)},
-    image_infos{std::move(other.image_infos)},
-    handle{other.handle}
+    image_infos{std::move(other.image_infos)}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::DescriptorSet &>(other) = nullptr;
 }
 
-VkDescriptorSet DescriptorSet::get_handle() const
+vk::DescriptorSet DescriptorSet::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::DescriptorSet &>(*this);
 }
 
 const DescriptorSetLayout &DescriptorSet::get_layout() const
@@ -135,12 +135,12 @@ const DescriptorSetLayout &DescriptorSet::get_layout() const
 	return descriptor_set_layout;
 }
 
-BindingMap<VkDescriptorBufferInfo> &DescriptorSet::get_buffer_infos()
+BindingMap<vk::DescriptorBufferInfo> &DescriptorSet::get_buffer_infos()
 {
 	return buffer_infos;
 }
 
-BindingMap<VkDescriptorImageInfo> &DescriptorSet::get_image_infos()
+BindingMap<vk::DescriptorImageInfo> &DescriptorSet::get_image_infos()
 {
 	return image_infos;
 }

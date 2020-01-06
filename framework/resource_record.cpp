@@ -64,7 +64,7 @@ const std::ostringstream &ResourceRecord::get_stream()
 	return stream;
 }
 
-size_t ResourceRecord::register_shader_module(VkShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant)
+size_t ResourceRecord::register_shader_module(vk::ShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant)
 {
 	shader_module_indices.push_back(shader_module_indices.size());
 
@@ -104,7 +104,7 @@ size_t ResourceRecord::register_render_pass(const std::vector<Attachment> &attac
 	return render_pass_indices.back();
 }
 
-size_t ResourceRecord::register_graphics_pipeline(VkPipelineCache /*pipeline_cache*/, PipelineState &pipeline_state)
+size_t ResourceRecord::register_graphics_pipeline(vk::PipelineCache /*pipeline_cache*/, PipelineState &pipeline_state)
 {
 	graphics_pipeline_indices.push_back(graphics_pipeline_indices.size());
 

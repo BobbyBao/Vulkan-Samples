@@ -27,31 +27,31 @@ namespace vkb
 {
 struct VertexInputState
 {
-	std::vector<VkVertexInputBindingDescription> bindings;
+	std::vector<vk::VertexInputBindingDescription> bindings;
 
-	std::vector<VkVertexInputAttributeDescription> attributes;
+	std::vector<vk::VertexInputAttributeDescription> attributes;
 };
 
 struct InputAssemblyState
 {
-	VkPrimitiveTopology topology{VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+	vk::PrimitiveTopology topology{vk::PrimitiveTopology::eTriangleList};
 
-	VkBool32 primitive_restart_enable{VK_FALSE};
+	vk::Bool32 primitive_restart_enable{VK_FALSE};
 };
 
 struct RasterizationState
 {
-	VkBool32 depth_clamp_enable{VK_FALSE};
+	vk::Bool32 depth_clamp_enable{VK_FALSE};
 
-	VkBool32 rasterizer_discard_enable{VK_FALSE};
+	vk::Bool32 rasterizer_discard_enable{VK_FALSE};
 
-	VkPolygonMode polygon_mode{VK_POLYGON_MODE_FILL};
+	vk::PolygonMode polygon_mode{vk::PolygonMode::eFill};
 
-	VkCullModeFlags cull_mode{VK_CULL_MODE_BACK_BIT};
+	vk::CullModeFlags cull_mode{vk::CullModeFlagBits::eBack};
 
-	VkFrontFace front_face{VK_FRONT_FACE_COUNTER_CLOCKWISE};
+	vk::FrontFace front_face{vk::FrontFace::eCounterClockwise};
 
-	VkBool32 depth_bias_enable{VK_FALSE};
+	vk::Bool32 depth_bias_enable{VK_FALSE};
 };
 
 struct ViewportState
@@ -63,42 +63,42 @@ struct ViewportState
 
 struct MultisampleState
 {
-	VkSampleCountFlagBits rasterization_samples{VK_SAMPLE_COUNT_1_BIT};
+	vk::SampleCountFlagBits rasterization_samples{vk::SampleCountFlagBits::e1};
 
-	VkBool32 sample_shading_enable{VK_FALSE};
+	vk::Bool32 sample_shading_enable{VK_FALSE};
 
 	float min_sample_shading{0.0f};
 
-	VkSampleMask sample_mask{0};
+	vk::SampleMask sample_mask{0};
 
-	VkBool32 alpha_to_coverage_enable{VK_FALSE};
+	vk::Bool32 alpha_to_coverage_enable{VK_FALSE};
 
-	VkBool32 alpha_to_one_enable{VK_FALSE};
+	vk::Bool32 alpha_to_one_enable{VK_FALSE};
 };
 
 struct StencilOpState
 {
-	VkStencilOp fail_op{VK_STENCIL_OP_REPLACE};
+	vk::StencilOp fail_op{vk::StencilOp::eReplace};
 
-	VkStencilOp pass_op{VK_STENCIL_OP_REPLACE};
+	vk::StencilOp pass_op{vk::StencilOp::eReplace};
 
-	VkStencilOp depth_fail_op{VK_STENCIL_OP_REPLACE};
+	vk::StencilOp depth_fail_op{vk::StencilOp::eReplace};
 
-	VkCompareOp compare_op{VK_COMPARE_OP_NEVER};
+	vk::CompareOp compare_op{vk::CompareOp::eNever};
 };
 
 struct DepthStencilState
 {
-	VkBool32 depth_test_enable{VK_TRUE};
+	vk::Bool32 depth_test_enable{VK_TRUE};
 
-	VkBool32 depth_write_enable{VK_TRUE};
+	vk::Bool32 depth_write_enable{VK_TRUE};
 
 	// Note: Using Reversed depth-buffer for increased precision, so Greater depth values are kept
-	VkCompareOp depth_compare_op{VK_COMPARE_OP_GREATER};
+	vk::CompareOp depth_compare_op{vk::CompareOp::eGreater};
 
-	VkBool32 depth_bounds_test_enable{VK_FALSE};
+	vk::Bool32 depth_bounds_test_enable{VK_FALSE};
 
-	VkBool32 stencil_test_enable{VK_FALSE};
+	vk::Bool32 stencil_test_enable{VK_FALSE};
 
 	StencilOpState front{};
 
@@ -107,28 +107,28 @@ struct DepthStencilState
 
 struct ColorBlendAttachmentState
 {
-	VkBool32 blend_enable{VK_FALSE};
+	vk::Bool32 blend_enable{VK_FALSE};
 
-	VkBlendFactor src_color_blend_factor{VK_BLEND_FACTOR_ONE};
+	vk::BlendFactor src_color_blend_factor{vk::BlendFactor::eOne};
 
-	VkBlendFactor dst_color_blend_factor{VK_BLEND_FACTOR_ZERO};
+	vk::BlendFactor dst_color_blend_factor{vk::BlendFactor::eZero};
 
-	VkBlendOp color_blend_op{VK_BLEND_OP_ADD};
+	vk::BlendOp color_blend_op{vk::BlendOp::eAdd};
 
-	VkBlendFactor src_alpha_blend_factor{VK_BLEND_FACTOR_ONE};
+	vk::BlendFactor src_alpha_blend_factor{vk::BlendFactor::eOne};
 
-	VkBlendFactor dst_alpha_blend_factor{VK_BLEND_FACTOR_ZERO};
+	vk::BlendFactor dst_alpha_blend_factor{vk::BlendFactor::eZero};
 
-	VkBlendOp alpha_blend_op{VK_BLEND_OP_ADD};
+	vk::BlendOp alpha_blend_op{vk::BlendOp::eAdd};
 
-	VkColorComponentFlags color_write_mask{VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+	vk::ColorComponentFlags color_write_mask{vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA};
 };
 
 struct ColorBlendState
 {
-	VkBool32 logic_op_enable{VK_FALSE};
+	vk::Bool32 logic_op_enable{VK_FALSE};
 
-	VkLogicOp logic_op{VK_LOGIC_OP_CLEAR};
+	vk::LogicOp logic_op{vk::LogicOp::eClear};
 
 	std::vector<ColorBlendAttachmentState> attachments;
 };

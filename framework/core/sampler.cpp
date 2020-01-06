@@ -23,31 +23,31 @@ namespace vkb
 {
 namespace core
 {
-Sampler::Sampler(Device &d, const VkSamplerCreateInfo &info) :
+Sampler::Sampler(Device &d, const vk::SamplerCreateInfo &info) :
     device{d}
 {
-	VK_CHECK(vkCreateSampler(device.get_handle(), &info, nullptr, &handle));
+	static_cast<vk::Sampler &>(*this) = device.get_handle().createSampler(info);
 }
 
 Sampler::Sampler(Sampler &&other) :
-    device{other.device},
-    handle{other.handle}
+    vk::Sampler{other},
+    device{other.device}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::Sampler &>(other) = nullptr;
 }
 
 Sampler::~Sampler()
 {
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroySampler(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 
-VkSampler Sampler::get_handle() const
+vk::Sampler Sampler::get_handle() const
 {
-	assert(handle != VK_NULL_HANDLE && "Sampler handle is invalid");
-	return handle;
+	assert(operator bool() && "Sampler handle is invalid");
+	return static_cast<const vk::Sampler &>(*this);
 }
 }        // namespace core
 }        // namespace vkb

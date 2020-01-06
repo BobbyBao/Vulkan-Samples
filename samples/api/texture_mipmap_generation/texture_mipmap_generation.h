@@ -38,17 +38,17 @@ class TextureMipMapGeneration : public ApiVulkanSample
   public:
 	struct Texture
 	{
-		VkImage        image;
-		VkImageLayout  image_layout;
-		VkDeviceMemory device_memory;
-		VkImageView    view;
-		uint32_t       width, height;
-		uint32_t       mip_levels;
+		vk::Image        image;
+		vk::ImageLayout  image_layout;
+		vk::DeviceMemory device_memory;
+		vk::ImageView    view;
+		uint32_t         width, height;
+		uint32_t         mip_levels;
 	} texture;
 
 	// To demonstrate mip mapping and filtering this example uses separate samplers
 	std::vector<std::string> sampler_names{"No mip maps", "Mip maps (bilinear)", "Mip maps (anisotropic)"};
-	std::vector<VkSampler>   samplers;
+	std::vector<vk::Sampler> samplers;
 
 	std::unique_ptr<vkb::sg::SubMesh> scene;
 
@@ -63,10 +63,10 @@ class TextureMipMapGeneration : public ApiVulkanSample
 	} ubo;
 	std::unique_ptr<vkb::core::Buffer> uniform_buffer;
 
-	VkPipeline            pipeline;
-	VkPipelineLayout      pipeline_layout;
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::Pipeline            pipeline;
+	vk::PipelineLayout      pipeline_layout;
+	vk::DescriptorSet       descriptor_set;
+	vk::DescriptorSetLayout descriptor_set_layout;
 
 	TextureMipMapGeneration();
 	~TextureMipMapGeneration();

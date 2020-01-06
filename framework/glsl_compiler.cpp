@@ -30,35 +30,35 @@ namespace vkb
 {
 namespace
 {
-inline EShLanguage FindShaderLanguage(VkShaderStageFlagBits stage)
+inline EShLanguage FindShaderLanguage(vk::ShaderStageFlagBits stage)
 {
 	switch (stage)
 	{
-		case VK_SHADER_STAGE_VERTEX_BIT:
+		case vk::ShaderStageFlagBits::eVertex:
 			return EShLangVertex;
 
-		case VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT:
+		case vk::ShaderStageFlagBits::eTessellationControl:
 			return EShLangTessControl;
 
-		case VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT:
+		case vk::ShaderStageFlagBits::eTessellationEvaluation:
 			return EShLangTessEvaluation;
 
-		case VK_SHADER_STAGE_GEOMETRY_BIT:
+		case vk::ShaderStageFlagBits::eGeometry:
 			return EShLangGeometry;
 
-		case VK_SHADER_STAGE_FRAGMENT_BIT:
+		case vk::ShaderStageFlagBits::eFragment:
 			return EShLangFragment;
 
-		case VK_SHADER_STAGE_COMPUTE_BIT:
+		case vk::ShaderStageFlagBits::eCompute:
 			return EShLangCompute;
 
-		case VK_SHADER_STAGE_RAYGEN_BIT_NV:
+		case vk::ShaderStageFlagBits::eRaygenNV:
 			return EShLangRayGenNV;
 
-		case VK_SHADER_STAGE_MISS_BIT_NV:
+		case vk::ShaderStageFlagBits::eMissNV:
 			return EShLangMissNV;
 
-		case VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV:
+		case vk::ShaderStageFlagBits::eClosestHitNV:
 			return EShLangClosestHitNV;
 
 		default:
@@ -67,7 +67,7 @@ inline EShLanguage FindShaderLanguage(VkShaderStageFlagBits stage)
 }
 }        // namespace
 
-bool GLSLCompiler::compile_to_spirv(VkShaderStageFlagBits       stage,
+bool GLSLCompiler::compile_to_spirv(vk::ShaderStageFlagBits     stage,
                                     const std::vector<uint8_t> &glsl_source,
                                     const std::string &         entry_point,
                                     const ShaderVariant &       shader_variant,

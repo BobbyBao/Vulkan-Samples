@@ -28,30 +28,20 @@ CommandPool::CommandPool(Device &d, uint32_t queue_family_index, RenderFrame *re
     thread_index{thread_index},
     reset_mode{reset_mode}
 {
-	VkCommandPoolCreateFlags flags;
+	vk::CommandPoolCreateFlags flags;
 	switch (reset_mode)
 	{
 		case CommandBuffer::ResetMode::ResetIndividually:
 		case CommandBuffer::ResetMode::AlwaysAllocate:
-			flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+			flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
 			break;
 		case CommandBuffer::ResetMode::ResetPool:
 		default:
-			flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+			flags = vk::CommandPoolCreateFlagBits::eTransient;
 			break;
 	}
 
-	VkCommandPoolCreateInfo create_info{VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
-
-	create_info.queueFamilyIndex = queue_family_index;
-	create_info.flags            = flags;
-
-	auto result = vkCreateCommandPool(device.get_handle(), &create_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Failed to create command pool"};
-	}
+	static_cast<vk::CommandPool &>(*this) = device.get_handle().createCommandPool({flags, queue_family_index});
 }
 
 CommandPool::~CommandPool()
@@ -60,15 +50,15 @@ CommandPool::~CommandPool()
 	secondary_command_buffers.clear();
 
 	// Destroy command pool
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroyCommandPool(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 
 CommandPool::CommandPool(CommandPool &&other) :
+    vk::CommandPool{other},
     device{other.device},
-    handle{other.handle},
     queue_family_index{other.queue_family_index},
     primary_command_buffers{std::move(other.primary_command_buffers)},
     active_primary_command_buffer_count{other.active_primary_command_buffer_count},
@@ -78,7 +68,7 @@ CommandPool::CommandPool(CommandPool &&other) :
     thread_index{other.thread_index},
     reset_mode{other.reset_mode}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::CommandPool &&>(other) = nullptr;
 
 	other.queue_family_index = 0;
 
@@ -97,9 +87,9 @@ uint32_t CommandPool::get_queue_family_index() const
 	return queue_family_index;
 }
 
-VkCommandPool CommandPool::get_handle() const
+vk::CommandPool CommandPool::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::CommandPool &>(*this);
 }
 
 RenderFrame *CommandPool::get_render_frame()
@@ -112,9 +102,9 @@ size_t CommandPool::get_thread_index() const
 	return thread_index;
 }
 
-VkResult CommandPool::reset_pool()
+vk::Result CommandPool::reset_pool()
 {
-	VkResult result = VK_SUCCESS;
+	vk::Result result = vk::Result::eSuccess;
 
 	switch (reset_mode)
 	{
@@ -126,12 +116,7 @@ VkResult CommandPool::reset_pool()
 		}
 		case CommandBuffer::ResetMode::ResetPool:
 		{
-			result = vkResetCommandPool(device.get_handle(), handle, 0);
-
-			if (result != VK_SUCCESS)
-			{
-				return result;
-			}
+			device.get_handle().resetCommandPool(*this, {});
 
 			result = reset_command_buffers();
 
@@ -154,15 +139,15 @@ VkResult CommandPool::reset_pool()
 	return result;
 }
 
-VkResult CommandPool::reset_command_buffers()
+vk::Result CommandPool::reset_command_buffers()
 {
-	VkResult result = VK_SUCCESS;
+	vk::Result result = vk::Result::eSuccess;
 
 	for (auto &cmd_buf : primary_command_buffers)
 	{
 		result = cmd_buf->reset(reset_mode);
 
-		if (result != VK_SUCCESS)
+		if (result != vk::Result::eSuccess)
 		{
 			return result;
 		}
@@ -174,7 +159,7 @@ VkResult CommandPool::reset_command_buffers()
 	{
 		result = cmd_buf->reset(reset_mode);
 
-		if (result != VK_SUCCESS)
+		if (result != vk::Result::eSuccess)
 		{
 			return result;
 		}
@@ -185,9 +170,9 @@ VkResult CommandPool::reset_command_buffers()
 	return result;
 }
 
-CommandBuffer &CommandPool::request_command_buffer(VkCommandBufferLevel level)
+CommandBuffer &CommandPool::request_command_buffer(vk::CommandBufferLevel level)
 {
-	if (level == VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+	if (level == vk::CommandBufferLevel::ePrimary)
 	{
 		if (active_primary_command_buffer_count < primary_command_buffers.size())
 		{

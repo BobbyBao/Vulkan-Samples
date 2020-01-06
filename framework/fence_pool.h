@@ -38,16 +38,16 @@ class FencePool
 
 	FencePool &operator=(FencePool &&) = delete;
 
-	VkFence request_fence();
+	vk::Fence request_fence();
 
-	VkResult wait(uint32_t timeout = std::numeric_limits<uint32_t>::max()) const;
+	vk::Result wait(uint32_t timeout = std::numeric_limits<uint32_t>::max()) const;
 
-	VkResult reset();
+	vk::Result reset();
 
   private:
 	Device &device;
 
-	std::vector<VkFence> fences;
+	std::vector<vk::Fence> fences;
 
 	uint32_t active_fence_count{0};
 };

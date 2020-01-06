@@ -26,41 +26,33 @@
 
 namespace vkb
 {
-CommandBuffer::CommandBuffer(CommandPool &command_pool, VkCommandBufferLevel level) :
+CommandBuffer::CommandBuffer(CommandPool &command_pool, vk::CommandBufferLevel level) :
     command_pool{command_pool},
     level{level}
 {
-	VkCommandBufferAllocateInfo allocate_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
-
-	allocate_info.commandPool        = command_pool.get_handle();
-	allocate_info.commandBufferCount = 1;
-	allocate_info.level              = level;
-
-	VkResult result = vkAllocateCommandBuffers(command_pool.get_device().get_handle(), &allocate_info, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Failed to allocate command buffer"};
-	}
+	auto &device = command_pool.get_device();
+	auto &self   = static_cast<vk::CommandBuffer &>(*this);
+	self         = device.get_handle().allocateCommandBuffers(vk::CommandBufferAllocateInfo{command_pool.get_handle(), level, 1})[0];
 }
 
 CommandBuffer::~CommandBuffer()
 {
+	auto &device = command_pool.get_device();
+	auto &self   = static_cast<vk::CommandBuffer &>(*this);
 	// Destroy command buffer
-	if (handle != VK_NULL_HANDLE)
+	if (self)
 	{
-		vkFreeCommandBuffers(command_pool.get_device().get_handle(), command_pool.get_handle(), 1, &handle);
+		device.get_handle().freeCommandBuffers(command_pool, self);
 	}
 }
 
 CommandBuffer::CommandBuffer(CommandBuffer &&other) :
     command_pool{other.command_pool},
     level{other.level},
-    handle{other.handle},
     state{other.state}
 {
-	other.handle = VK_NULL_HANDLE;
-	other.state  = State::Invalid;
+	static_cast<vk::CommandBuffer &>(other) = nullptr;
+	other.state                             = State::Invalid;
 }
 
 Device &CommandBuffer::get_device()
@@ -68,9 +60,9 @@ Device &CommandBuffer::get_device()
 	return command_pool.get_device();
 }
 
-const VkCommandBuffer &CommandBuffer::get_handle() const
+const vk::CommandBuffer &CommandBuffer::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::CommandBuffer &>(*this);
 }
 
 bool CommandBuffer::is_recording() const
@@ -78,18 +70,18 @@ bool CommandBuffer::is_recording() const
 	return state == State::Recording;
 }
 
-void CommandBuffer::clear(VkClearAttachment attachment, VkClearRect rect)
+void CommandBuffer::clear(vk::ClearAttachment attachment, vk::ClearRect rect)
 {
-	vkCmdClearAttachments(handle, 1, &attachment, 1, &rect);
+	clearAttachments(attachment, rect);
 }
 
-VkResult CommandBuffer::begin(VkCommandBufferUsageFlags flags, CommandBuffer *primary_cmd_buf)
+vk::Result CommandBuffer::begin(vk::CommandBufferUsageFlags flags, CommandBuffer *primary_cmd_buf)
 {
 	assert(!is_recording() && "Command buffer is already recording, please call end before beginning again");
 
 	if (is_recording())
 	{
-		return VK_NOT_READY;
+		return vk::Result::eNotReady;
 	}
 
 	state = State::Recording;
@@ -100,11 +92,11 @@ VkResult CommandBuffer::begin(VkCommandBufferUsageFlags flags, CommandBuffer *pr
 	descriptor_set_layout_binding_state.clear();
 	stored_push_constants.clear();
 
-	VkCommandBufferBeginInfo       begin_info{VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO};
-	VkCommandBufferInheritanceInfo inheritance = {VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO};
-	begin_info.flags                           = flags;
+	vk::CommandBufferBeginInfo       begin_info;
+	vk::CommandBufferInheritanceInfo inheritance;
+	begin_info.flags = flags;
 
-	if (level == VK_COMMAND_BUFFER_LEVEL_SECONDARY)
+	if (level == vk::CommandBufferLevel::eSecondary)
 	{
 		assert(primary_cmd_buf && "A primary command buffer pointer must be provided when calling begin from a secondary one");
 
@@ -119,26 +111,28 @@ VkResult CommandBuffer::begin(VkCommandBufferUsageFlags flags, CommandBuffer *pr
 		begin_info.pInheritanceInfo = &inheritance;
 	}
 
-	return vkBeginCommandBuffer(get_handle(), &begin_info);
+	auto &self = static_cast<vk::CommandBuffer &>(*this);
+	self.begin(begin_info);
+	return vk::Result::eSuccess;
 }
 
-VkResult CommandBuffer::end()
+vk::Result CommandBuffer::end()
 {
 	assert(is_recording() && "Command buffer is not recording, please call begin before end");
 
 	if (!is_recording())
 	{
-		return VK_NOT_READY;
+		return vk::Result::eNotReady;
 	}
-
-	vkEndCommandBuffer(get_handle());
+	auto &self = static_cast<vk::CommandBuffer &>(*this);
+	self.end();
 
 	state = State::Executable;
 
-	return VK_SUCCESS;
+	return vk::Result::eSuccess;
 }
 
-void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const std::vector<LoadStoreInfo> &load_store_infos, const std::vector<VkClearValue> &clear_values, const std::vector<std::unique_ptr<Subpass>> &subpasses, VkSubpassContents contents)
+void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const std::vector<LoadStoreInfo> &load_store_infos, const std::vector<vk::ClearValue> &clear_values, const std::vector<std::unique_ptr<Subpass>> &subpasses, vk::SubpassContents contents)
 {
 	// Reset state
 	pipeline_state.reset();
@@ -160,7 +154,7 @@ void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const s
 	current_render_pass.framebuffer = &get_device().get_resource_cache().request_framebuffer(render_target, *current_render_pass.render_pass);
 
 	// Begin render pass
-	VkRenderPassBeginInfo begin_info{VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+	vk::RenderPassBeginInfo begin_info;
 	begin_info.renderPass        = current_render_pass.render_pass->get_handle();
 	begin_info.framebuffer       = current_render_pass.framebuffer->get_handle();
 	begin_info.renderArea.extent = render_target.get_extent();
@@ -183,7 +177,7 @@ void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const s
 		last_render_area_extent = begin_info.renderArea.extent;
 	}
 
-	vkCmdBeginRenderPass(get_handle(), &begin_info, contents);
+	get_handle().beginRenderPass(begin_info, contents);
 
 	// Update blend state attachments for first subpass
 	auto blend_state = pipeline_state.get_color_blend_state();
@@ -208,25 +202,26 @@ void CommandBuffer::next_subpass()
 	// Clear stored push constants
 	stored_push_constants.clear();
 
-	vkCmdNextSubpass(get_handle(), VK_SUBPASS_CONTENTS_INLINE);
+	auto &self = static_cast<vk::CommandBuffer &>(*this);
+	self.nextSubpass(vk::SubpassContents::eInline);
 }
 
-void CommandBuffer::execute_commands(CommandBuffer &secondary_command_buffer)
+void CommandBuffer::execute_commands(const vk::ArrayProxy<const vk::CommandBuffer> &secondary_command_buffer)
 {
-	vkCmdExecuteCommands(get_handle(), 1, &secondary_command_buffer.get_handle());
+	executeCommands(secondary_command_buffer);
 }
 
 void CommandBuffer::execute_commands(std::vector<CommandBuffer *> &secondary_command_buffers)
 {
-	std::vector<VkCommandBuffer> sec_cmd_buf_handles(secondary_command_buffers.size(), VK_NULL_HANDLE);
+	std::vector<vk::CommandBuffer> sec_cmd_buf_handles(secondary_command_buffers.size());
 	std::transform(secondary_command_buffers.begin(), secondary_command_buffers.end(), sec_cmd_buf_handles.begin(),
 	               [](const vkb::CommandBuffer *sec_cmd_buf) { return sec_cmd_buf->get_handle(); });
-	vkCmdExecuteCommands(get_handle(), to_u32(sec_cmd_buf_handles.size()), sec_cmd_buf_handles.data());
+	executeCommands(sec_cmd_buf_handles);
 }
 
 void CommandBuffer::end_render_pass()
 {
-	vkCmdEndRenderPass(get_handle());
+	endRenderPass();
 }
 
 void CommandBuffer::bind_pipeline_layout(PipelineLayout &pipeline_layout)
@@ -259,11 +254,11 @@ void CommandBuffer::push_constants(uint32_t offset, const std::vector<uint8_t> &
 
 	const PipelineLayout &pipeline_layout = pipeline_state.get_pipeline_layout();
 
-	VkShaderStageFlags shader_stage = pipeline_layout.get_push_constant_range_stage(offset, to_u32(values.size()));
+	vk::ShaderStageFlags shader_stage = pipeline_layout.get_push_constant_range_stage(offset, to_u32(values.size()));
 
 	if (shader_stage)
 	{
-		vkCmdPushConstants(get_handle(), pipeline_layout.get_handle(), shader_stage, offset, to_u32(values.size()), values.data());
+		pushConstants<uint8_t>(pipeline_layout.get_handle(), shader_stage, offset, values);
 	}
 	else
 	{
@@ -271,7 +266,7 @@ void CommandBuffer::push_constants(uint32_t offset, const std::vector<uint8_t> &
 	}
 }
 
-void CommandBuffer::bind_buffer(const core::Buffer &buffer, VkDeviceSize offset, VkDeviceSize range, uint32_t set, uint32_t binding, uint32_t array_element)
+void CommandBuffer::bind_buffer(const core::Buffer &buffer, vk::DeviceSize offset, vk::DeviceSize range, uint32_t set, uint32_t binding, uint32_t array_element)
 {
 	resource_binding_state.bind_buffer(buffer, offset, range, set, binding, array_element);
 }
@@ -286,17 +281,14 @@ void CommandBuffer::bind_input(const core::ImageView &image_view, uint32_t set, 
 	resource_binding_state.bind_input(image_view, set, binding, array_element);
 }
 
-void CommandBuffer::bind_vertex_buffers(uint32_t first_binding, const std::vector<std::reference_wrapper<const vkb::core::Buffer>> &buffers, const std::vector<VkDeviceSize> &offsets)
+void CommandBuffer::bind_vertex_buffers(uint32_t first_binding, const vk::ArrayProxy<const vk::Buffer> &buffers, const vk::ArrayProxy<const vk::DeviceSize> &offsets)
 {
-	std::vector<VkBuffer> buffer_handles(buffers.size(), VK_NULL_HANDLE);
-	std::transform(buffers.begin(), buffers.end(), buffer_handles.begin(),
-	               [](const core::Buffer &buffer) { return buffer.get_handle(); });
-	vkCmdBindVertexBuffers(get_handle(), first_binding, to_u32(buffer_handles.size()), buffer_handles.data(), offsets.data());
+	bindVertexBuffers(first_binding, buffers, offsets);
 }
 
-void CommandBuffer::bind_index_buffer(const core::Buffer &buffer, VkDeviceSize offset, VkIndexType index_type)
+void CommandBuffer::bind_index_buffer(const core::Buffer &buffer, vk::DeviceSize offset, vk::IndexType index_type)
 {
-	vkCmdBindIndexBuffer(get_handle(), buffer.get_handle(), offset, index_type);
+	bindIndexBuffer(buffer.get_handle(), offset, index_type);
 }
 
 void CommandBuffer::set_viewport_state(const ViewportState &state_info)
@@ -334,117 +326,109 @@ void CommandBuffer::set_color_blend_state(const ColorBlendState &state_info)
 	pipeline_state.set_color_blend_state(state_info);
 }
 
-void CommandBuffer::set_viewport(uint32_t first_viewport, const std::vector<VkViewport> &viewports)
+void CommandBuffer::set_viewport(uint32_t first_viewport, const vk::ArrayProxy<const vk::Viewport> &viewports)
 {
-	vkCmdSetViewport(get_handle(), first_viewport, to_u32(viewports.size()), viewports.data());
+	setViewport(first_viewport, viewports);
 }
 
-void CommandBuffer::set_scissor(uint32_t first_scissor, const std::vector<VkRect2D> &scissors)
+void CommandBuffer::set_scissor(uint32_t first_scissor, const vk::ArrayProxy<const vk::Rect2D> &scissors)
 {
-	vkCmdSetScissor(get_handle(), first_scissor, to_u32(scissors.size()), scissors.data());
+	setScissor(first_scissor, scissors);
 }
 
 void CommandBuffer::set_line_width(float line_width)
 {
-	vkCmdSetLineWidth(get_handle(), line_width);
+	setLineWidth(line_width);
 }
 
 void CommandBuffer::set_depth_bias(float depth_bias_constant_factor, float depth_bias_clamp, float depth_bias_slope_factor)
 {
-	vkCmdSetDepthBias(get_handle(), depth_bias_constant_factor, depth_bias_clamp, depth_bias_slope_factor);
+	setDepthBias(depth_bias_constant_factor, depth_bias_clamp, depth_bias_slope_factor);
 }
 
 void CommandBuffer::set_blend_constants(const std::array<float, 4> &blend_constants)
 {
-	vkCmdSetBlendConstants(get_handle(), blend_constants.data());
+	setBlendConstants(blend_constants.data());
 }
 
 void CommandBuffer::set_depth_bounds(float min_depth_bounds, float max_depth_bounds)
 {
-	vkCmdSetDepthBounds(get_handle(), min_depth_bounds, max_depth_bounds);
+	setDepthBounds(min_depth_bounds, max_depth_bounds);
 }
 
 void CommandBuffer::draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance)
 {
-	flush_pipeline_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_pipeline_state(vk::PipelineBindPoint::eGraphics);
 
-	flush_descriptor_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_descriptor_state(vk::PipelineBindPoint::eGraphics);
 
-	vkCmdDraw(get_handle(), vertex_count, instance_count, first_vertex, first_instance);
+	get_handle().draw(vertex_count, instance_count, first_vertex, first_instance);
 }
 
 void CommandBuffer::draw_indexed(uint32_t index_count, uint32_t instance_count, uint32_t first_index, int32_t vertex_offset, uint32_t first_instance)
 {
-	flush_pipeline_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_pipeline_state(vk::PipelineBindPoint::eGraphics);
 
-	flush_descriptor_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_descriptor_state(vk::PipelineBindPoint::eGraphics);
 
-	vkCmdDrawIndexed(get_handle(), index_count, instance_count, first_index, vertex_offset, first_instance);
+	get_handle().drawIndexed(index_count, instance_count, first_index, vertex_offset, first_instance);
 }
 
-void CommandBuffer::draw_indexed_indirect(const core::Buffer &buffer, VkDeviceSize offset, uint32_t draw_count, uint32_t stride)
+void CommandBuffer::draw_indexed_indirect(const core::Buffer &buffer, vk::DeviceSize offset, uint32_t draw_count, uint32_t stride)
 {
-	flush_pipeline_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_pipeline_state(vk::PipelineBindPoint::eGraphics);
 
-	flush_descriptor_state(VK_PIPELINE_BIND_POINT_GRAPHICS);
+	flush_descriptor_state(vk::PipelineBindPoint::eGraphics);
 
-	vkCmdDrawIndexedIndirect(get_handle(), buffer.get_handle(), offset, draw_count, stride);
+	get_handle().drawIndexedIndirect(buffer.get_handle(), offset, draw_count, stride);
 }
 
 void CommandBuffer::dispatch(uint32_t group_count_x, uint32_t group_count_y, uint32_t group_count_z)
 {
-	flush_pipeline_state(VK_PIPELINE_BIND_POINT_COMPUTE);
+	flush_pipeline_state(vk::PipelineBindPoint::eCompute);
 
-	flush_descriptor_state(VK_PIPELINE_BIND_POINT_COMPUTE);
+	flush_descriptor_state(vk::PipelineBindPoint::eCompute);
 
-	vkCmdDispatch(get_handle(), group_count_x, group_count_y, group_count_z);
+	get_handle().dispatch(group_count_x, group_count_y, group_count_z);
 }
 
-void CommandBuffer::dispatch_indirect(const core::Buffer &buffer, VkDeviceSize offset)
+void CommandBuffer::dispatch_indirect(const core::Buffer &buffer, vk::DeviceSize offset)
 {
-	flush_pipeline_state(VK_PIPELINE_BIND_POINT_COMPUTE);
+	flush_pipeline_state(vk::PipelineBindPoint::eCompute);
 
-	flush_descriptor_state(VK_PIPELINE_BIND_POINT_COMPUTE);
+	flush_descriptor_state(vk::PipelineBindPoint::eCompute);
 
-	vkCmdDispatchIndirect(get_handle(), buffer.get_handle(), offset);
+	get_handle().dispatchIndirect(buffer.get_handle(), offset);
 }
 
-void CommandBuffer::update_buffer(const core::Buffer &buffer, VkDeviceSize offset, const std::vector<uint8_t> &data)
+void CommandBuffer::update_buffer(const core::Buffer &buffer, vk::DeviceSize offset, const std::vector<uint8_t> &data)
 {
-	vkCmdUpdateBuffer(get_handle(), buffer.get_handle(), offset, data.size(), data.data());
+	updateBuffer<uint8_t>(buffer.get_handle(), offset, data);
 }
 
-void CommandBuffer::blit_image(const core::Image &src_img, const core::Image &dst_img, const std::vector<VkImageBlit> &regions)
+void CommandBuffer::blit_image(const core::Image &src_img, const core::Image &dst_img, const vk::ArrayProxy<const vk::ImageBlit> &regions)
 {
-	vkCmdBlitImage(get_handle(), src_img.get_handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-	               dst_img.get_handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	               to_u32(regions.size()), regions.data(), VK_FILTER_NEAREST);
+	blitImage(src_img, vk::ImageLayout::eTransferSrcOptimal, dst_img, vk::ImageLayout::eTransferDstOptimal, regions, vk::Filter::eNearest);
 }
 
-void CommandBuffer::copy_buffer(const core::Buffer &src_buffer, const core::Buffer &dst_buffer, VkDeviceSize size)
+void CommandBuffer::copy_buffer(const core::Buffer &src_buffer, const core::Buffer &dst_buffer, vk::DeviceSize size)
 {
-	VkBufferCopy copy_region = {};
-	copy_region.size         = size;
-	vkCmdCopyBuffer(get_handle(), src_buffer.get_handle(), dst_buffer.get_handle(), 1, &copy_region);
+	copyBuffer(src_buffer.get_handle(), dst_buffer.get_handle(), vk::BufferCopy{0, 0, size});
 }
 
-void CommandBuffer::copy_image(const core::Image &src_img, const core::Image &dst_img, const std::vector<VkImageCopy> &regions)
+void CommandBuffer::copy_image(const core::Image &src_img, const core::Image &dst_img, const vk::ArrayProxy<const vk::ImageCopy> &regions)
 {
-	vkCmdCopyImage(get_handle(), src_img.get_handle(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-	               dst_img.get_handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	               to_u32(regions.size()), regions.data());
+	copyImage(src_img, vk::ImageLayout::eTransferSrcOptimal, dst_img, vk::ImageLayout::eTransferDstOptimal, regions);
 }
 
-void CommandBuffer::copy_buffer_to_image(const core::Buffer &buffer, const core::Image &image, const std::vector<VkBufferImageCopy> &regions)
+void CommandBuffer::copy_buffer_to_image(const core::Buffer &buffer, const core::Image &image, const vk::ArrayProxy<const vk::BufferImageCopy> &regions)
 {
-	vkCmdCopyBufferToImage(get_handle(), buffer.get_handle(),
-	                       image.get_handle(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-	                       to_u32(regions.size()), regions.data());
+	copyBufferToImage(buffer.get_handle(), image, vk::ImageLayout::eTransferDstOptimal, regions);
 }
 
 void CommandBuffer::image_memory_barrier(const core::ImageView &image_view, const ImageMemoryBarrier &memory_barrier)
 {
-	VkImageMemoryBarrier image_memory_barrier{VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+	vk::ImageMemoryBarrier image_memory_barrier;
 	image_memory_barrier.oldLayout        = memory_barrier.old_layout;
 	image_memory_barrier.newLayout        = memory_barrier.new_layout;
 	image_memory_barrier.image            = image_view.get_image().get_handle();
@@ -452,43 +436,28 @@ void CommandBuffer::image_memory_barrier(const core::ImageView &image_view, cons
 	image_memory_barrier.srcAccessMask    = memory_barrier.src_access_mask;
 	image_memory_barrier.dstAccessMask    = memory_barrier.dst_access_mask;
 
-	VkPipelineStageFlags src_stage_mask = memory_barrier.src_stage_mask;
-	VkPipelineStageFlags dst_stage_mask = memory_barrier.dst_stage_mask;
+	vk::PipelineStageFlags src_stage_mask = memory_barrier.src_stage_mask;
+	vk::PipelineStageFlags dst_stage_mask = memory_barrier.dst_stage_mask;
 
-	vkCmdPipelineBarrier(
-	    get_handle(),
-	    src_stage_mask,
-	    dst_stage_mask,
-	    0,
-	    0, nullptr,
-	    0, nullptr,
-	    1,
-	    &image_memory_barrier);
+	pipelineBarrier(src_stage_mask, dst_stage_mask, {}, nullptr, nullptr, image_memory_barrier);
 }
 
-void CommandBuffer::buffer_memory_barrier(const core::Buffer &buffer, VkDeviceSize offset, VkDeviceSize size, const BufferMemoryBarrier &memory_barrier)
+void CommandBuffer::buffer_memory_barrier(const core::Buffer &buffer, vk::DeviceSize offset, vk::DeviceSize size, const BufferMemoryBarrier &memory_barrier)
 {
-	VkBufferMemoryBarrier buffer_memory_barrier{VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
+	vk::BufferMemoryBarrier buffer_memory_barrier;
 	buffer_memory_barrier.srcAccessMask = memory_barrier.src_access_mask;
 	buffer_memory_barrier.dstAccessMask = memory_barrier.dst_access_mask;
 	buffer_memory_barrier.buffer        = buffer.get_handle();
 	buffer_memory_barrier.offset        = offset;
 	buffer_memory_barrier.size          = size;
 
-	VkPipelineStageFlags src_stage_mask = memory_barrier.src_stage_mask;
-	VkPipelineStageFlags dst_stage_mask = memory_barrier.dst_stage_mask;
+	vk::PipelineStageFlags src_stage_mask = memory_barrier.src_stage_mask;
+	vk::PipelineStageFlags dst_stage_mask = memory_barrier.dst_stage_mask;
 
-	vkCmdPipelineBarrier(
-	    get_handle(),
-	    src_stage_mask,
-	    dst_stage_mask,
-	    0,
-	    0, nullptr,
-	    1, &buffer_memory_barrier,
-	    0, nullptr);
+	pipelineBarrier(src_stage_mask, dst_stage_mask, {}, nullptr, buffer_memory_barrier, nullptr);
 }
 
-void CommandBuffer::flush_pipeline_state(VkPipelineBindPoint pipeline_bind_point)
+void CommandBuffer::flush_pipeline_state(vk::PipelineBindPoint pipeline_bind_point)
 {
 	// Create a new pipeline only if the graphics state changed
 	if (!pipeline_state.is_dirty())
@@ -499,22 +468,16 @@ void CommandBuffer::flush_pipeline_state(VkPipelineBindPoint pipeline_bind_point
 	pipeline_state.clear_dirty();
 
 	// Create and bind pipeline
-	if (pipeline_bind_point == VK_PIPELINE_BIND_POINT_GRAPHICS)
+	if (pipeline_bind_point == vk::PipelineBindPoint::eGraphics)
 	{
 		pipeline_state.set_render_pass(*current_render_pass.render_pass);
 		auto &pipeline = get_device().get_resource_cache().request_graphics_pipeline(pipeline_state);
-
-		vkCmdBindPipeline(get_handle(),
-		                  pipeline_bind_point,
-		                  pipeline.get_handle());
+		bindPipeline(pipeline_bind_point, pipeline);
 	}
-	else if (pipeline_bind_point == VK_PIPELINE_BIND_POINT_COMPUTE)
+	else if (pipeline_bind_point == vk::PipelineBindPoint::eCompute)
 	{
 		auto &pipeline = get_device().get_resource_cache().request_compute_pipeline(pipeline_state);
-
-		vkCmdBindPipeline(get_handle(),
-		                  pipeline_bind_point,
-		                  pipeline.get_handle());
+		bindPipeline(pipeline_bind_point, pipeline);
 	}
 	else
 	{
@@ -522,7 +485,7 @@ void CommandBuffer::flush_pipeline_state(VkPipelineBindPoint pipeline_bind_point
 	}
 }
 
-void CommandBuffer::flush_descriptor_state(VkPipelineBindPoint pipeline_bind_point)
+void CommandBuffer::flush_descriptor_state(vk::PipelineBindPoint pipeline_bind_point)
 {
 	assert(command_pool.get_render_frame() && "The command pool must be associated to a render frame");
 
@@ -593,8 +556,8 @@ void CommandBuffer::flush_descriptor_state(VkPipelineBindPoint pipeline_bind_poi
 			// Make descriptor set layout bound for current set
 			descriptor_set_layout_binding_state[descriptor_set_id] = &descriptor_set_layout;
 
-			BindingMap<VkDescriptorBufferInfo> buffer_infos;
-			BindingMap<VkDescriptorImageInfo>  image_infos;
+			BindingMap<vk::DescriptorBufferInfo> buffer_infos;
+			BindingMap<vk::DescriptorImageInfo>  image_infos;
 
 			std::vector<uint32_t> dynamic_offsets;
 
@@ -641,8 +604,8 @@ void CommandBuffer::flush_descriptor_state(VkPipelineBindPoint pipeline_bind_poi
 						else if (image_view != nullptr || sampler != VK_NULL_HANDLE)
 						{
 							// Can be null for input attachments
-							VkDescriptorImageInfo image_info{};
-							image_info.sampler   = sampler ? sampler->get_handle() : VK_NULL_HANDLE;
+							vk::DescriptorImageInfo image_info;
+							image_info.sampler   = sampler ? sampler->get_handle() : nullptr;
 							image_info.imageView = image_view->get_handle();
 
 							if (image_view != nullptr)
@@ -650,19 +613,19 @@ void CommandBuffer::flush_descriptor_state(VkPipelineBindPoint pipeline_bind_poi
 								// Add image layout info based on descriptor type
 								switch (binding_info->descriptorType)
 								{
-									case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-									case VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT:
+									case vk::DescriptorType::eCombinedImageSampler:
+									case vk::DescriptorType::eInputAttachment:
 										if (is_depth_stencil_format(image_view->get_format()))
 										{
-											image_info.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+											image_info.imageLayout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 										}
 										else
 										{
-											image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+											image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
 										}
 										break;
-									case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-										image_info.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+									case vk::DescriptorType::eStorageImage:
+										image_info.imageLayout = vk::ImageLayout::eGeneral;
 										break;
 
 									default:
@@ -678,16 +641,15 @@ void CommandBuffer::flush_descriptor_state(VkPipelineBindPoint pipeline_bind_poi
 
 			auto &descriptor_set = command_pool.get_render_frame()->request_descriptor_set(descriptor_set_layout, buffer_infos, image_infos, command_pool.get_thread_index());
 
-			VkDescriptorSet descriptor_set_handle = descriptor_set.get_handle();
+			vk::DescriptorSet descriptor_set_handle = descriptor_set.get_handle();
 
 			// Bind descriptor set
-			vkCmdBindDescriptorSets(get_handle(),
-			                        pipeline_bind_point,
-			                        pipeline_layout.get_handle(),
-			                        descriptor_set_id,
-			                        1, &descriptor_set_handle,
-			                        to_u32(dynamic_offsets.size()),
-			                        dynamic_offsets.data());
+			bindDescriptorSets(
+			    pipeline_bind_point,
+			    pipeline_layout.get_handle(),
+			    descriptor_set_id,
+			    descriptor_set_handle,
+			    dynamic_offsets);
 		}
 	}
 }
@@ -707,7 +669,7 @@ const uint32_t CommandBuffer::get_current_subpass_index() const
 	return pipeline_state.get_subpass_index();
 }
 
-const bool CommandBuffer::is_render_size_optimal(const VkExtent2D &framebuffer_extent, const VkRect2D &render_area)
+const bool CommandBuffer::is_render_size_optimal(const vk::Extent2D &framebuffer_extent, const vk::Rect2D &render_area)
 {
 	auto render_area_granularity = current_render_pass.render_pass->get_render_area_granularity();
 
@@ -716,9 +678,9 @@ const bool CommandBuffer::is_render_size_optimal(const VkExtent2D &framebuffer_e
 	        ((render_area.extent.height % render_area_granularity.height == 0) || (render_area.offset.y + render_area.extent.height == framebuffer_extent.height)));
 }
 
-VkResult CommandBuffer::reset(ResetMode reset_mode)
+vk::Result CommandBuffer::reset(ResetMode reset_mode)
 {
-	VkResult result = VK_SUCCESS;
+	vk::Result result = vk::Result::eSuccess;
 
 	assert(reset_mode == command_pool.get_reset_mode() && "Command buffer reset mode must match the one used by the pool to allocate it");
 
@@ -726,7 +688,7 @@ VkResult CommandBuffer::reset(ResetMode reset_mode)
 
 	if (reset_mode == ResetMode::ResetIndividually)
 	{
-		result = vkResetCommandBuffer(handle, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+		get_handle().reset(vk::CommandBufferResetFlagBits::eReleaseResources);
 	}
 
 	return result;

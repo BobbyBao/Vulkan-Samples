@@ -37,8 +37,8 @@ void LightingSubpass::prepare()
 	add_definitions(lighting_variant, light_type_definitions);
 	// Build all shaders upfront
 	auto &resource_cache = render_context.get_device().get_resource_cache();
-	resource_cache.request_shader_module(VK_SHADER_STAGE_VERTEX_BIT, get_vertex_shader(), lighting_variant);
-	resource_cache.request_shader_module(VK_SHADER_STAGE_FRAGMENT_BIT, get_fragment_shader(), lighting_variant);
+	resource_cache.request_shader_module(vk::ShaderStageFlagBits::eVertex, get_vertex_shader(), lighting_variant);
+	resource_cache.request_shader_module(vk::ShaderStageFlagBits::eFragment, get_fragment_shader(), lighting_variant);
 }
 
 void LightingSubpass::draw(CommandBuffer &command_buffer)
@@ -48,8 +48,8 @@ void LightingSubpass::draw(CommandBuffer &command_buffer)
 
 	// Get shaders from cache
 	auto &resource_cache     = command_buffer.get_device().get_resource_cache();
-	auto &vert_shader_module = resource_cache.request_shader_module(VK_SHADER_STAGE_VERTEX_BIT, get_vertex_shader(), lighting_variant);
-	auto &frag_shader_module = resource_cache.request_shader_module(VK_SHADER_STAGE_FRAGMENT_BIT, get_fragment_shader(), lighting_variant);
+	auto &vert_shader_module = resource_cache.request_shader_module(vk::ShaderStageFlagBits::eVertex, get_vertex_shader(), lighting_variant);
+	auto &frag_shader_module = resource_cache.request_shader_module(vk::ShaderStageFlagBits::eFragment, get_fragment_shader(), lighting_variant);
 
 	std::vector<ShaderModule *> shader_modules{&vert_shader_module, &frag_shader_module};
 
@@ -73,7 +73,7 @@ void LightingSubpass::draw(CommandBuffer &command_buffer)
 
 	// Set cull mode to front as full screen triangle is clock-wise
 	RasterizationState rasterization_state;
-	rasterization_state.cull_mode = VK_CULL_MODE_FRONT_BIT;
+	rasterization_state.cull_mode = vk::CullModeFlagBits::eFront;
 	command_buffer.set_rasterization_state(rasterization_state);
 
 	// Populate uniform values
@@ -88,7 +88,7 @@ void LightingSubpass::draw(CommandBuffer &command_buffer)
 
 	// Allocate a buffer using the buffer pool from the active frame to store uniform values and bind it
 	auto &render_frame = get_render_context().get_active_frame();
-	auto  allocation   = render_frame.allocate_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(LightUniform));
+	auto  allocation   = render_frame.allocate_buffer(vk::BufferUsageFlagBits::eUniformBuffer, sizeof(LightUniform));
 	allocation.update(light_uniform);
 	command_buffer.bind_buffer(allocation.get_buffer(), allocation.get_offset(), allocation.get_size(), 0, 3, 0);
 

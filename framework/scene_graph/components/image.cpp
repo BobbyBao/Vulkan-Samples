@@ -36,42 +36,42 @@ namespace vkb
 {
 namespace sg
 {
-bool is_astc(const VkFormat format)
+bool is_astc(const vk::Format format)
 {
-	return (format == VK_FORMAT_ASTC_4x4_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_4x4_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_5x4_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_5x4_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_5x5_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_5x5_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_6x5_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_6x5_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_6x6_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_6x6_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x5_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x5_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x6_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x6_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x8_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_8x8_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x5_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x5_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x6_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x6_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x8_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x8_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x10_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_10x10_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_12x10_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_12x10_SRGB_BLOCK ||
-	        format == VK_FORMAT_ASTC_12x12_UNORM_BLOCK ||
-	        format == VK_FORMAT_ASTC_12x12_SRGB_BLOCK);
+	return (format == vk::Format::eAstc4x4UnormBlock ||
+	        format == vk::Format::eAstc4x4SrgbBlock ||
+	        format == vk::Format::eAstc5x4UnormBlock ||
+	        format == vk::Format::eAstc5x4SrgbBlock ||
+	        format == vk::Format::eAstc5x5UnormBlock ||
+	        format == vk::Format::eAstc5x5SrgbBlock ||
+	        format == vk::Format::eAstc6x5UnormBlock ||
+	        format == vk::Format::eAstc6x5SrgbBlock ||
+	        format == vk::Format::eAstc6x6UnormBlock ||
+	        format == vk::Format::eAstc6x6SrgbBlock ||
+	        format == vk::Format::eAstc8x5UnormBlock ||
+	        format == vk::Format::eAstc8x5SrgbBlock ||
+	        format == vk::Format::eAstc8x6UnormBlock ||
+	        format == vk::Format::eAstc8x6SrgbBlock ||
+	        format == vk::Format::eAstc8x8UnormBlock ||
+	        format == vk::Format::eAstc8x8SrgbBlock ||
+	        format == vk::Format::eAstc10x5UnormBlock ||
+	        format == vk::Format::eAstc10x5SrgbBlock ||
+	        format == vk::Format::eAstc10x6UnormBlock ||
+	        format == vk::Format::eAstc10x6SrgbBlock ||
+	        format == vk::Format::eAstc10x8UnormBlock ||
+	        format == vk::Format::eAstc10x8SrgbBlock ||
+	        format == vk::Format::eAstc10x10UnormBlock ||
+	        format == vk::Format::eAstc10x10SrgbBlock ||
+	        format == vk::Format::eAstc12x10UnormBlock ||
+	        format == vk::Format::eAstc12x10SrgbBlock ||
+	        format == vk::Format::eAstc12x12UnormBlock ||
+	        format == vk::Format::eAstc12x12SrgbBlock);
 }
 
 Image::Image(const std::string &name, std::vector<uint8_t> &&d, std::vector<Mipmap> &&m) :
     Component{name},
     data{std::move(d)},
-    format{VK_FORMAT_R8G8B8A8_UNORM},
+    format{vk::Format::eR8G8B8A8Unorm},
     mipmaps{std::move(m)}
 {
 }
@@ -92,12 +92,12 @@ void Image::clear_data()
 	data.shrink_to_fit();
 }
 
-VkFormat Image::get_format() const
+vk::Format Image::get_format() const
 {
 	return format;
 }
 
-const VkExtent3D &Image::get_extent() const
+const vk::Extent3D &Image::get_extent() const
 {
 	return mipmaps.at(0).extent;
 }
@@ -112,24 +112,44 @@ const std::vector<Mipmap> &Image::get_mipmaps() const
 	return mipmaps;
 }
 
-const std::vector<std::vector<VkDeviceSize>> &Image::get_offsets() const
+std::vector<vk::BufferImageCopy> Image::get_buffer_copy_regions() const
+{
+	std::vector<vk::BufferImageCopy> buffer_copy_regions;
+	for (uint32_t layer = 0; layer < layers; layer++)
+	{
+		for (size_t i = 0; i < mipmaps.size(); i++)
+		{
+			vk::BufferImageCopy buffer_copy_region;
+			buffer_copy_region.imageSubresource.aspectMask     = vk::ImageAspectFlagBits::eColor;
+			buffer_copy_region.imageSubresource.mipLevel       = vkb::to_u32(i);
+			buffer_copy_region.imageSubresource.baseArrayLayer = layer;
+			buffer_copy_region.imageSubresource.layerCount     = 1;
+			buffer_copy_region.imageExtent                     = mipmaps.at(i).extent;
+			buffer_copy_region.bufferOffset                    = offsets[layer][i];
+			buffer_copy_regions.push_back(buffer_copy_region);
+		}
+	}
+	return buffer_copy_regions;
+}
+
+const std::vector<std::vector<vk::DeviceSize>> &Image::get_offsets() const
 {
 	return offsets;
 }
 
-void Image::create_vk_image(Device &device, VkImageViewType image_view_type, VkImageCreateFlags flags)
+void Image::create_vk_image(Device &device, vk::ImageViewType image_view_type, vk::ImageCreateFlags flags)
 {
 	assert(!vk_image && !vk_image_view && "Vulkan image already constructed");
 
 	vk_image = std::make_unique<core::Image>(device,
 	                                         get_extent(),
 	                                         format,
-	                                         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-	                                         VMA_MEMORY_USAGE_GPU_ONLY,
-	                                         VK_SAMPLE_COUNT_1_BIT,
+	                                         vk::ImageUsageFlagBits::eSampled | vk::ImageUsageFlagBits::eTransferDst,
+	                                         vma::MemoryUsage::eGpuOnly,
+	                                         vk::SampleCountFlagBits::e1,
 	                                         to_u32(mipmaps.size()),
 	                                         layers,
-	                                         VK_IMAGE_TILING_OPTIMAL,
+	                                         vk::ImageTiling::eOptimal,
 	                                         flags);
 
 	vk_image_view = std::make_unique<core::ImageView>(*vk_image, image_view_type);
@@ -214,7 +234,7 @@ void Image::set_data(const uint8_t *raw_data, size_t size)
 	data = {raw_data, raw_data + size};
 }
 
-void Image::set_format(const VkFormat f)
+void Image::set_format(const vk::Format f)
 {
 	format = f;
 }
@@ -239,7 +259,7 @@ void Image::set_layers(uint32_t l)
 	layers = l;
 }
 
-void Image::set_offsets(const std::vector<std::vector<VkDeviceSize>> &o)
+void Image::set_offsets(const std::vector<std::vector<vk::DeviceSize>> &o)
 {
 	offsets = o;
 }

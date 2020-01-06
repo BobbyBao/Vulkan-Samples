@@ -33,7 +33,7 @@ ShaderProgram::ShaderProgram(const std::vector<ShaderModule *> &shader_modules) 
 			// Since 'Input' and 'Output' resources can have the same name, we modify the key string
 			if (shader_resource.type == ShaderResourceType::Input || shader_resource.type == ShaderResourceType::Output)
 			{
-				key = std::to_string(shader_resource.stages) + "_" + key;
+				key = vk::to_string(shader_resource.stages) + "_" + key;
 			}
 
 			auto it = resources.find(key);
@@ -78,7 +78,7 @@ const std::vector<ShaderModule *> &ShaderProgram::get_shader_modules() const
 	return shader_modules;
 }
 
-const std::vector<ShaderResource> ShaderProgram::get_resources(const ShaderResourceType &type, VkShaderStageFlagBits stage) const
+const std::vector<ShaderResource> ShaderProgram::get_resources(const ShaderResourceType &type, vk::ShaderStageFlagBits stage) const
 {
 	std::vector<ShaderResource> found_resources;
 
@@ -88,7 +88,7 @@ const std::vector<ShaderResource> ShaderProgram::get_resources(const ShaderResou
 
 		if (shader_resource.type == type || type == ShaderResourceType::All)
 		{
-			if (shader_resource.stages == stage || stage == VK_SHADER_STAGE_ALL)
+			if (shader_resource.stages == stage || stage == vk::ShaderStageFlagBits::eAll)
 			{
 				found_resources.push_back(shader_resource);
 			}

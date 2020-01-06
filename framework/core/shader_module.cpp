@@ -25,7 +25,7 @@
 
 namespace vkb
 {
-ShaderModule::ShaderModule(Device &device, VkShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant) :
+ShaderModule::ShaderModule(Device &device, vk::ShaderStageFlagBits stage, const ShaderSource &glsl_source, const std::string &entry_point, const ShaderVariant &shader_variant) :
     device{device},
     stage{stage},
     entry_point{entry_point}
@@ -33,13 +33,13 @@ ShaderModule::ShaderModule(Device &device, VkShaderStageFlagBits stage, const Sh
 	// Check if application is passing in GLSL source code to compile to SPIR-V
 	if (glsl_source.get_data().empty())
 	{
-		throw VulkanException{VK_ERROR_INITIALIZATION_FAILED};
+        vk::throwResultException(vk::Result::eErrorInitializationFailed, "Could not read shader source");
 	}
 
 	// Compiling from GLSL source requires the entry point
 	if (entry_point.empty())
 	{
-		throw VulkanException{VK_ERROR_INITIALIZATION_FAILED};
+		vk::throwResultException(vk::Result::eErrorInitializationFailed, "No entry point specified");
 	}
 
 	GLSLCompiler glsl_compiler;
@@ -49,11 +49,11 @@ ShaderModule::ShaderModule(Device &device, VkShaderStageFlagBits stage, const Sh
 	{
 		if (glsl_source.get_filename().empty())
 		{
-			throw VulkanException{VK_ERROR_INITIALIZATION_FAILED, "Shader compilation failed:\n" + info_log};
+			vk::throwResultException(vk::Result::eErrorInitializationFailed, ("Shader compilation failed:\n" + info_log).c_str());
 		}
 		else
 		{
-			throw VulkanException{VK_ERROR_INITIALIZATION_FAILED, "Compilation failed for shader \"" + glsl_source.get_filename() + "\":\n" + info_log};
+			vk::throwResultException(vk::Result::eErrorInitializationFailed, ("Compilation failed for shader \"" + glsl_source.get_filename() + "\":\n" + info_log).c_str());
 		}
 	}
 
@@ -62,7 +62,7 @@ ShaderModule::ShaderModule(Device &device, VkShaderStageFlagBits stage, const Sh
 	// Reflect all shader resouces
 	if (!spirv_reflection.reflect_shader_resources(stage, spirv, resources, shader_variant))
 	{
-		throw VulkanException{VK_ERROR_INITIALIZATION_FAILED};
+        vk::throwResultException(vk::Result::eErrorInitializationFailed, "Shader reflection failed");
 	}
 
 	// Generate a unique id, determined by source and variant
@@ -87,7 +87,7 @@ size_t ShaderModule::get_id() const
 	return id;
 }
 
-VkShaderStageFlagBits ShaderModule::get_stage() const
+vk::ShaderStageFlagBits ShaderModule::get_stage() const
 {
 	return stage;
 }

@@ -36,11 +36,11 @@ class Material;
 
 struct VertexAttribute
 {
-	VkFormat format = VK_FORMAT_UNDEFINED;
+	vk::Format format{vk::Format::eUndefined};
 
-	std::uint32_t stride = 0;
+	std::uint32_t stride{0};
 
-	std::uint32_t offset = 0;
+	std::uint32_t offset{0};
 };
 
 class SubMesh : public Component
@@ -50,7 +50,7 @@ class SubMesh : public Component
 
 	virtual std::type_index get_type() override;
 
-	VkIndexType index_type{};
+	vk::IndexType index_type;
 
 	std::uint32_t index_offset = 0;
 

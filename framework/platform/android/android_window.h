@@ -45,7 +45,7 @@ class AndroidWindow : public Window
 	 * @brief Creates a Vulkan surface to the native window
 	 *        If headless, this will return VK_NULL_HANDLE
 	 */
-	virtual VkSurfaceKHR create_surface(Instance &instance) override;
+	virtual vk::SurfaceKHR create_surface(Instance &instance) override;
 
 	virtual bool should_close() override;
 

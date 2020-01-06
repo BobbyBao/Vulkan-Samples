@@ -92,9 +92,9 @@ class ResourceCache
 
 	std::vector<uint8_t> serialize();
 
-	void set_pipeline_cache(VkPipelineCache pipeline_cache);
+	void set_pipeline_cache(vk::PipelineCache pipeline_cache);
 
-	ShaderModule &request_shader_module(VkShaderStageFlagBits stage, const ShaderSource &glsl_source, const ShaderVariant &shader_variant = {});
+	ShaderModule &request_shader_module(vk::ShaderStageFlagBits stage, const ShaderSource &glsl_source, const ShaderVariant &shader_variant = {});
 
 	PipelineLayout &request_pipeline_layout(const std::vector<ShaderModule *> &shader_modules, bool use_dynamic_resources);
 
@@ -104,9 +104,9 @@ class ResourceCache
 
 	ComputePipeline &request_compute_pipeline(PipelineState &pipeline_state);
 
-	DescriptorSet &request_descriptor_set(DescriptorSetLayout &                     descriptor_set_layout,
-	                                      const BindingMap<VkDescriptorBufferInfo> &buffer_infos,
-	                                      const BindingMap<VkDescriptorImageInfo> & image_infos);
+	DescriptorSet &request_descriptor_set(DescriptorSetLayout &                       descriptor_set_layout,
+	                                      const BindingMap<vk::DescriptorBufferInfo> &buffer_infos,
+	                                      const BindingMap<vk::DescriptorImageInfo> & image_infos);
 
 	RenderPass &request_render_pass(const std::vector<Attachment> &   attachments,
 	                                const std::vector<LoadStoreInfo> &load_store_infos,
@@ -135,7 +135,7 @@ class ResourceCache
 
 	ResourceReplay replayer;
 
-	VkPipelineCache pipeline_cache{VK_NULL_HANDLE};
+	vk::PipelineCache pipeline_cache;
 
 	ResourceCacheState state;
 

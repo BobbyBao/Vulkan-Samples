@@ -111,7 +111,7 @@ Ktx::Ktx(const std::string &name, const std::vector<uint8_t> &data) :
 	}
 
 	// Update format
-	auto updated_format = vkGetFormatFromOpenGLInternalFormat(texture->glInternalformat);
+	auto updated_format = static_cast<vk::Format>(vkGetFormatFromOpenGLInternalFormat(texture->glInternalformat));
 	set_format(updated_format);
 
 	// Update mip levels
@@ -128,10 +128,10 @@ Ktx::Ktx(const std::string &name, const std::vector<uint8_t> &data) :
 	{
 		uint32_t layer_count = cubemap ? texture->numFaces : texture->numLayers;
 
-		std::vector<std::vector<VkDeviceSize>> offsets;
+		std::vector<std::vector<vk::DeviceSize>> offsets;
 		for (uint32_t layer = 0; layer < layer_count; layer++)
 		{
-			std::vector<VkDeviceSize> layer_offsets{};
+			std::vector<vk::DeviceSize> layer_offsets{};
 			for (uint32_t level = 0; level < texture->numLevels; level++)
 			{
 				ktx_size_t     offset;
@@ -144,7 +144,7 @@ Ktx::Ktx(const std::string &name, const std::vector<uint8_t> &data) :
 				{
 					result = ktxTexture_GetImageOffset(texture, level, layer, 0, &offset);
 				}
-				layer_offsets.push_back(static_cast<VkDeviceSize>(offset));
+				layer_offsets.push_back(static_cast<vk::DeviceSize>(offset));
 			}
 			offsets.push_back(layer_offsets);
 		}
@@ -152,11 +152,11 @@ Ktx::Ktx(const std::string &name, const std::vector<uint8_t> &data) :
 	}
 	else
 	{
-		std::vector<std::vector<VkDeviceSize>> offsets{};
+		std::vector<std::vector<vk::DeviceSize>> offsets{};
 		offsets.resize(1);
 		for (size_t level = 0; level < mipmap_levels.size(); level++)
 		{
-			offsets[0].push_back(static_cast<VkDeviceSize>(mipmap_levels[level].offset));
+			offsets[0].push_back(static_cast<vk::DeviceSize>(mipmap_levels[level].offset));
 		}
 		set_offsets(offsets);
 	}

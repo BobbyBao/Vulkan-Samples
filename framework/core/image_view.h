@@ -25,10 +25,10 @@ namespace vkb
 {
 namespace core
 {
-class ImageView
+class ImageView : protected vk::ImageView
 {
   public:
-	ImageView(Image &image, VkImageViewType view_type, VkFormat format = VK_FORMAT_UNDEFINED);
+	ImageView(Image &image, vk::ImageViewType view_type, vk::Format format = vk::Format::eUndefined);
 
 	ImageView(ImageView &) = delete;
 
@@ -48,24 +48,22 @@ class ImageView
 	 */
 	void set_image(Image &image);
 
-	VkImageView get_handle() const;
+	vk::ImageView get_handle() const;
 
-	VkFormat get_format() const;
+	vk::Format get_format() const;
 
-	VkImageSubresourceRange get_subresource_range() const;
+	vk::ImageSubresourceRange get_subresource_range() const;
 
-	VkImageSubresourceLayers get_subresource_layers() const;
+	vk::ImageSubresourceLayers get_subresource_layers() const;
 
   private:
 	Device &device;
 
 	Image *image{};
 
-	VkImageView handle{VK_NULL_HANDLE};
+	const vk::Format format;
 
-	VkFormat format{};
-
-	VkImageSubresourceRange subresource_range{};
+	vk::ImageSubresourceRange subresource_range;
 };
 }        // namespace core
 }        // namespace vkb

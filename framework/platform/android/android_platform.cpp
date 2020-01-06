@@ -395,7 +395,7 @@ bool AndroidPlatform::initialize(std::unique_ptr<Application> &&application)
 
 void AndroidPlatform::create_window()
 {
-	// Required so that the vulkan sample can create a VkSurface
+	// Required so that the vulkan sample can create a vk::Surface
 	window = std::make_unique<AndroidWindow>(*this, app->window, active_app->is_headless());
 }
 

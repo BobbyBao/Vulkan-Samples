@@ -26,7 +26,7 @@ namespace vkb
 {
 class Device;
 
-class Framebuffer
+class Framebuffer : protected vk::Framebuffer
 {
   public:
 	Framebuffer(Device &device, const RenderTarget &render_target, const RenderPass &render_pass);
@@ -41,15 +41,13 @@ class Framebuffer
 
 	Framebuffer &operator=(Framebuffer &&) = delete;
 
-	VkFramebuffer get_handle() const;
+	const vk::Framebuffer &get_handle() const;
 
-	const VkExtent2D &get_extent() const;
+	const vk::Extent2D &get_extent() const;
 
   private:
 	Device &device;
 
-	VkFramebuffer handle{VK_NULL_HANDLE};
-
-	VkExtent2D extent{};
+	vk::Extent2D extent;
 };
 }        // namespace vkb

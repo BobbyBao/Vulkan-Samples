@@ -28,20 +28,20 @@ AndroidWindow::AndroidWindow(Platform &platform, ANativeWindow *&window, bool he
 {
 }
 
-VkSurfaceKHR AndroidWindow::create_surface(Instance &instance)
+vk::SurfaceKHR AndroidWindow::create_surface(Instance &instance)
 {
 	if (instance.get_handle() == VK_NULL_HANDLE || !handle || headless)
 	{
 		return VK_NULL_HANDLE;
 	}
 
-	VkSurfaceKHR surface{};
+	vk::SurfaceKHR surface;
 
-	VkAndroidSurfaceCreateInfoKHR info{VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR};
+	vk::AndroidSurfaceCreateInfoKHR info;
 
 	info.window = handle;
 
-	VK_CHECK(vkCreateAndroidSurfaceKHR(instance.get_handle(), &info, nullptr, &surface));
+	surface = instance.get_handle().createAndroidSurfaceKHR(info);
 
 	return surface;
 }

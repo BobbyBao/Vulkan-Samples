@@ -25,39 +25,36 @@ VKBP_ENABLE_WARNINGS()
 
 namespace vkb
 {
-Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vector<const char *> requested_extensions, VkPhysicalDeviceFeatures requested_features) :
+Device::Device(const vk::Instance &instance, vk::PhysicalDevice physical_device, vk::SurfaceKHR surface, const std::vector<const char *> &requested_extensions, vk::PhysicalDeviceFeatures requested_features) :
     physical_device{physical_device},
     resource_cache{*this}
 {
 	// Check whether ASTC is supported
-	vkGetPhysicalDeviceFeatures(physical_device, &features);
+	features = physical_device.getFeatures();
 	if (features.textureCompressionASTC_LDR)
 	{
 		requested_features.textureCompressionASTC_LDR = VK_TRUE;
 	}
 
 	// Gpu properties
-	vkGetPhysicalDeviceProperties(physical_device, &properties);
+	properties = physical_device.getProperties();
 	LOGI("GPU: {}", properties.deviceName);
 
-	vkGetPhysicalDeviceMemoryProperties(physical_device, &memory_properties);
+	memory_properties = physical_device.getMemoryProperties();
 
-	uint32_t queue_family_properties_count = 0;
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_properties_count, nullptr);
+	queue_family_properties                = physical_device.getQueueFamilyProperties();
+	uint32_t queue_family_properties_count = to_u32(queue_family_properties.size());
 
-	queue_family_properties = std::vector<VkQueueFamilyProperties>(queue_family_properties_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_properties_count, queue_family_properties.data());
-
-	std::vector<VkDeviceQueueCreateInfo> queue_create_infos(queue_family_properties_count, {VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO});
-	std::vector<std::vector<float>>      queue_priorities(queue_family_properties_count);
+	std::vector<vk::DeviceQueueCreateInfo> queue_create_infos(queue_family_properties_count);
+	std::vector<std::vector<float>>        queue_priorities(queue_family_properties_count);
 
 	for (uint32_t queue_family_index = 0U; queue_family_index < queue_family_properties_count; ++queue_family_index)
 	{
-		const VkQueueFamilyProperties &queue_family_property = queue_family_properties[queue_family_index];
+		const vk::QueueFamilyProperties &queue_family_property = queue_family_properties[queue_family_index];
 
 		queue_priorities[queue_family_index].resize(queue_family_property.queueCount, 1.0f);
 
-		VkDeviceQueueCreateInfo &queue_create_info = queue_create_infos[queue_family_index];
+		vk::DeviceQueueCreateInfo &queue_create_info = queue_create_infos[queue_family_index];
 
 		queue_create_info.queueFamilyIndex = queue_family_index;
 		queue_create_info.queueCount       = queue_family_property.queueCount;
@@ -65,10 +62,7 @@ Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vect
 	}
 
 	// Check extensions to enable Vma Dedicated Allocation
-	uint32_t device_extension_count;
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &device_extension_count, nullptr));
-	device_extensions = std::vector<VkExtensionProperties>(device_extension_count);
-	VK_CHECK(vkEnumerateDeviceExtensionProperties(physical_device, nullptr, &device_extension_count, device_extensions.data()));
+	device_extensions = physical_device.enumerateDeviceExtensionProperties();
 
 	// Display supported extensions
 	if (device_extensions.size() > 0)
@@ -122,10 +116,10 @@ Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vect
 		{
 			LOGE("\t{}", extension);
 		}
-		throw VulkanException(VK_ERROR_EXTENSION_NOT_PRESENT, "Extensions not present");
+		vk::throwResultException(vk::Result::eErrorExtensionNotPresent, "Extensions not present");
 	}
 
-	VkDeviceCreateInfo create_info{VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO};
+	vk::DeviceCreateInfo create_info;
 
 	create_info.pQueueCreateInfos       = queue_create_infos.data();
 	create_info.queueCreateInfoCount    = to_u32(queue_create_infos.size());
@@ -133,25 +127,22 @@ Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vect
 	create_info.enabledExtensionCount   = to_u32(supported_extensions.size());
 	create_info.ppEnabledExtensionNames = supported_extensions.data();
 
-	VkResult result = vkCreateDevice(physical_device, &create_info, nullptr, &handle);
+	static_cast<vk::Device &>(*this) = physical_device.createDevice(create_info);
 
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create device"};
-	}
+	volkLoadDevice(*this);
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(*this);
 
 	queues.resize(queue_family_properties_count);
-
 	for (uint32_t queue_family_index = 0U; queue_family_index < queue_family_properties_count; ++queue_family_index)
 	{
-		const VkQueueFamilyProperties &queue_family_property = queue_family_properties[queue_family_index];
+		const vk::QueueFamilyProperties &queue_family_property = queue_family_properties[queue_family_index];
 
-		VkBool32 present_supported{VK_FALSE};
+		vk::Bool32 present_supported{VK_FALSE};
 
 		// Only check if surface is valid to allow for headless applications
-		if (surface != VK_NULL_HANDLE)
+		if (surface)
 		{
-			VK_CHECK(vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, queue_family_index, surface, &present_supported));
+			present_supported = physical_device.getSurfaceSupportKHR(queue_family_index, surface);
 		}
 
 		for (uint32_t queue_index = 0U; queue_index < queue_family_property.queueCount; ++queue_index)
@@ -160,7 +151,7 @@ Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vect
 		}
 	}
 
-	VmaVulkanFunctions vma_vulkan_func{};
+	vma::VulkanFunctions vma_vulkan_func{};
 	vma_vulkan_func.vkAllocateMemory                    = vkAllocateMemory;
 	vma_vulkan_func.vkBindBufferMemory                  = vkBindBufferMemory;
 	vma_vulkan_func.vkBindImageMemory                   = vkBindImageMemory;
@@ -178,27 +169,25 @@ Device::Device(VkPhysicalDevice physical_device, VkSurfaceKHR surface, std::vect
 	vma_vulkan_func.vkMapMemory                         = vkMapMemory;
 	vma_vulkan_func.vkUnmapMemory                       = vkUnmapMemory;
 
-	VmaAllocatorCreateInfo allocator_info{};
+	vma::Allocator::CreateInfo allocator_info;
 	allocator_info.physicalDevice = physical_device;
-	allocator_info.device         = handle;
+	allocator_info.device         = operator VkDevice();
 
 	if (can_get_memory_requirements && has_dedicated_allocation)
 	{
-		allocator_info.flags |= VMA_ALLOCATOR_CREATE_KHR_DEDICATED_ALLOCATION_BIT;
+		allocator_info.flags |= vma::Allocator::CreateFlagBits::eDedicatedAllocation;
 		vma_vulkan_func.vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2KHR;
 		vma_vulkan_func.vkGetImageMemoryRequirements2KHR  = vkGetImageMemoryRequirements2KHR;
 	}
 
 	allocator_info.pVulkanFunctions = &vma_vulkan_func;
 
-	result = vmaCreateAllocator(&allocator_info, &memory_allocator);
+	memory_allocator = vma::createAllocator(allocator_info);
 
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create allocator"};
-	}
+	const auto &primary_queue_reference = get_queue_by_flags(vk::QueueFlagBits::eGraphics | vk::QueueFlagBits::eCompute, 0);
+	primary_queue                       = &primary_queue_reference;
 
-	command_pool = std::make_unique<CommandPool>(*this, get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT | VK_QUEUE_COMPUTE_BIT, 0).get_family_index());
+	command_pool = std::make_unique<CommandPool>(*this, primary_queue_reference.get_family_index());
 	fence_pool   = std::make_unique<FencePool>(*this);
 }
 
@@ -209,19 +198,16 @@ Device::~Device()
 	command_pool.reset();
 	fence_pool.reset();
 
-	if (memory_allocator != VK_NULL_HANDLE)
+	if (memory_allocator)
 	{
-		VmaStats stats;
-		vmaCalculateStats(memory_allocator, &stats);
-
+		auto stats = memory_allocator.calculateStats();
 		LOGI("Total device memory leaked: {} bytes.", stats.total.usedBytes);
-
-		vmaDestroyAllocator(memory_allocator);
+		memory_allocator.destroy();
 	}
 
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroyDevice(handle, nullptr);
+		destroy();
 	}
 }
 
@@ -233,27 +219,27 @@ bool Device::is_extension_supported(const std::string &requested_extension)
 	                    }) != device_extensions.end();
 }
 
-VkPhysicalDevice Device::get_physical_device() const
+vk::PhysicalDevice Device::get_physical_device() const
 {
 	return physical_device;
 }
 
-const VkPhysicalDeviceFeatures &Device::get_features() const
+const vk::PhysicalDeviceFeatures &Device::get_features() const
 {
 	return features;
 }
 
-VkDevice Device::get_handle() const
+vk::Device Device::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Device &>(*this);
 }
 
-VmaAllocator Device::get_memory_allocator() const
+const vma::Allocator &Device::get_memory_allocator() const
 {
 	return memory_allocator;
 }
 
-const VkPhysicalDeviceProperties &Device::get_properties() const
+const vk::PhysicalDeviceProperties &Device::get_properties() const
 {
 	return properties;
 }
@@ -284,21 +270,20 @@ DriverVersion Device::get_driver_version() const
 	return version;
 }
 
-bool Device::is_image_format_supported(VkFormat format) const
+bool Device::is_image_format_supported(vk::Format format) const
 {
-	VkImageFormatProperties format_properties;
-
-	auto result = vkGetPhysicalDeviceImageFormatProperties(physical_device,
-	                                                       format,
-	                                                       VK_IMAGE_TYPE_2D,
-	                                                       VK_IMAGE_TILING_OPTIMAL,
-	                                                       VK_IMAGE_USAGE_SAMPLED_BIT,
-	                                                       0,        // no create flags
-	                                                       &format_properties);
+	vk::ImageFormatProperties format_properties;
+	auto                      result = vkGetPhysicalDeviceImageFormatProperties(physical_device,
+                                                           static_cast<VkFormat>(format),
+                                                           static_cast<VkImageType>(vk::ImageType::e2D),
+                                                           static_cast<VkImageTiling>(vk::ImageTiling::eOptimal),
+                                                           static_cast<VkImageUsageFlags>(vk::ImageUsageFlagBits::eSampled),
+                                                           0,        // no create flags
+                                                           &(format_properties.operator VkImageFormatProperties &()));
 	return result != VK_ERROR_FORMAT_NOT_SUPPORTED;
 }
 
-uint32_t Device::get_memory_type(uint32_t bits, VkMemoryPropertyFlags properties, VkBool32 *memory_type_found)
+uint32_t Device::get_memory_type(uint32_t bits, vk::MemoryPropertyFlags properties, vk::Bool32 *memory_type_found)
 {
 	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
 	{
@@ -327,11 +312,10 @@ uint32_t Device::get_memory_type(uint32_t bits, VkMemoryPropertyFlags properties
 	}
 }
 
-const VkFormatProperties Device::get_format_properties(VkFormat format) const
+const vk::FormatProperties Device::get_format_properties(vk::Format format) const
 {
-	VkFormatProperties format_properties;
-	vkGetPhysicalDeviceFormatProperties(physical_device, format, &format_properties);
-	return format_properties;
+	return physical_device.getFormatProperties(format);
+	;
 }
 
 const Queue &Device::get_queue(uint32_t queue_family_index, uint32_t queue_index)
@@ -339,14 +323,14 @@ const Queue &Device::get_queue(uint32_t queue_family_index, uint32_t queue_index
 	return queues[queue_family_index][queue_index];
 }
 
-const Queue &Device::get_queue_by_flags(VkQueueFlags required_queue_flags, uint32_t queue_index)
+const Queue &Device::get_queue_by_flags(vk::QueueFlags required_queue_flags, uint32_t queue_index)
 {
 	for (uint32_t queue_family_index = 0U; queue_family_index < queues.size(); ++queue_family_index)
 	{
 		Queue &first_queue = queues[queue_family_index][0];
 
-		VkQueueFlags queue_flags = first_queue.get_properties().queueFlags;
-		uint32_t     queue_count = first_queue.get_properties().queueCount;
+		vk::QueueFlags queue_flags = first_queue.get_properties().queueFlags;
+		uint32_t       queue_count = first_queue.get_properties().queueCount;
 
 		if (((queue_flags & required_queue_flags) == required_queue_flags) && queue_index < queue_count)
 		{
@@ -374,15 +358,15 @@ const Queue &Device::get_queue_by_present(uint32_t queue_index)
 	throw std::runtime_error("Queue not found");
 }
 
-uint32_t Device::get_queue_family_index(VkQueueFlagBits queue_flag)
+uint32_t Device::get_queue_family_index(vk::QueueFlags queue_flag)
 {
 	// Dedicated queue for compute
 	// Try to find a queue family index that supports compute but not graphics
-	if (queue_flag & VK_QUEUE_COMPUTE_BIT)
+	if (queue_flag & vk::QueueFlagBits::eCompute)
 	{
 		for (uint32_t i = 0; i < static_cast<uint32_t>(queue_family_properties.size()); i++)
 		{
-			if ((queue_family_properties[i].queueFlags & queue_flag) && ((queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0))
+			if ((queue_family_properties[i].queueFlags & queue_flag) && (!(queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)))
 			{
 				return i;
 				break;
@@ -392,11 +376,11 @@ uint32_t Device::get_queue_family_index(VkQueueFlagBits queue_flag)
 
 	// Dedicated queue for transfer
 	// Try to find a queue family index that supports transfer but not graphics and compute
-	if (queue_flag & VK_QUEUE_TRANSFER_BIT)
+	if (queue_flag & vk::QueueFlagBits::eTransfer)
 	{
 		for (uint32_t i = 0; i < static_cast<uint32_t>(queue_family_properties.size()); i++)
 		{
-			if ((queue_family_properties[i].queueFlags & queue_flag) && ((queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) == 0) && ((queue_family_properties[i].queueFlags & VK_QUEUE_COMPUTE_BIT) == 0))
+			if ((queue_family_properties[i].queueFlags & queue_flag) && (!(queue_family_properties[i].queueFlags & vk::QueueFlagBits::eGraphics)) && (!(queue_family_properties[i].queueFlags & vk::QueueFlagBits::eCompute)))
 			{
 				return i;
 				break;
@@ -431,64 +415,54 @@ const Queue &Device::get_suitable_graphics_queue()
 		}
 	}
 
-	return get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT, 0);
+	return get_queue_by_flags(vk::QueueFlagBits::eGraphics, 0);
 }
 
-VkBuffer Device::create_buffer(VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDeviceSize size, VkDeviceMemory *memory, void *data)
+vk::Buffer Device::create_buffer(vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties, vk::DeviceSize size, vk::DeviceMemory *memory, void *data)
 {
-	VkBuffer buffer = VK_NULL_HANDLE;
-
 	// Create the buffer handle
-	VkBufferCreateInfo buffer_create_info{};
-	buffer_create_info.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	buffer_create_info.usage       = usage;
-	buffer_create_info.size        = size;
-	buffer_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	VK_CHECK(vkCreateBuffer(handle, &buffer_create_info, nullptr, &buffer));
+	vk::Buffer buffer = createBuffer({{}, size, usage});
 
 	// Create the memory backing up the buffer handle
-	VkMemoryRequirements memory_requirements;
-	VkMemoryAllocateInfo memory_allocation{};
-	memory_allocation.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	vkGetBufferMemoryRequirements(handle, buffer, &memory_requirements);
+	vk::MemoryRequirements memory_requirements = getBufferMemoryRequirements(buffer);
+
+	vk::MemoryAllocateInfo memory_allocation;
 	memory_allocation.allocationSize = memory_requirements.size;
 	// Find a memory type index that fits the properties of the buffer
 	memory_allocation.memoryTypeIndex = get_memory_type(memory_requirements.memoryTypeBits, properties);
-	VK_CHECK(vkAllocateMemory(handle, &memory_allocation, nullptr, memory));
+	*memory                           = allocateMemory(memory_allocation);
 
 	// If a pointer to the buffer data has been passed, map the buffer and copy over the
 	if (data != nullptr)
 	{
-		void *mapped;
-		VK_CHECK(vkMapMemory(handle, *memory, 0, size, 0, &mapped));
+		void *mapped = mapMemory(*memory, 0, VK_WHOLE_SIZE);
 		memcpy(mapped, data, static_cast<size_t>(size));
 		// If host coherency hasn't been requested, do a manual flush to make writes visible
-		if ((properties & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0)
+		if (!(properties & vk::MemoryPropertyFlagBits::eHostCoherent))
 		{
-			VkMappedMemoryRange mapped_range{};
-			mapped_range.sType  = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+			vk::MappedMemoryRange mapped_range;
 			mapped_range.memory = *memory;
 			mapped_range.offset = 0;
 			mapped_range.size   = size;
-			vkFlushMappedMemoryRanges(handle, 1, &mapped_range);
+			flushMappedMemoryRanges(mapped_range);
 		}
-		vkUnmapMemory(handle, *memory);
+		unmapMemory(*memory);
 	}
 
 	// Attach the memory to the buffer object
-	VK_CHECK(vkBindBufferMemory(handle, buffer, *memory, 0));
+	bindBufferMemory(buffer, *memory, 0);
 
 	return buffer;
 }
 
-void Device::copy_buffer(vkb::core::Buffer &src, vkb::core::Buffer &dst, VkQueue queue, VkBufferCopy *copy_region)
+void Device::copy_buffer(vkb::core::Buffer &src, vkb::core::Buffer &dst, vk::Queue queue, vk::BufferCopy *copy_region)
 {
 	assert(dst.get_size() <= src.get_size());
 	assert(src.get_handle());
 
-	VkCommandBuffer command_buffer = create_command_buffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
+	vk::CommandBuffer command_buffer = create_command_buffer(vk::CommandBufferLevel::ePrimary, true);
 
-	VkBufferCopy buffer_copy{};
+	vk::BufferCopy buffer_copy;
 	if (copy_region == nullptr)
 	{
 		buffer_copy.size = src.get_size();
@@ -498,78 +472,56 @@ void Device::copy_buffer(vkb::core::Buffer &src, vkb::core::Buffer &dst, VkQueue
 		buffer_copy = *copy_region;
 	}
 
-	vkCmdCopyBuffer(command_buffer, src.get_handle(), dst.get_handle(), 1, &buffer_copy);
+	command_buffer.copyBuffer(src.get_handle(), dst.get_handle(), buffer_copy);
 
 	flush_command_buffer(command_buffer, queue);
 }
 
-VkCommandPool Device::create_command_pool(uint32_t queue_index, VkCommandPoolCreateFlags flags)
+vk::CommandPool Device::create_command_pool(uint32_t queue_index, vk::CommandPoolCreateFlags flags)
 {
-	VkCommandPoolCreateInfo command_pool_info = {};
-	command_pool_info.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	command_pool_info.queueFamilyIndex        = queue_index;
-	command_pool_info.flags                   = flags;
-	VkCommandPool command_pool;
-	VK_CHECK(vkCreateCommandPool(handle, &command_pool_info, nullptr, &command_pool));
-	return command_pool;
+	return createCommandPool({flags, queue_index});
 }
 
-VkCommandBuffer Device::create_command_buffer(VkCommandBufferLevel level, bool begin)
+vk::CommandBuffer Device::create_command_buffer(vk::CommandBufferLevel level, bool begin)
 {
 	assert(command_pool && "No command pool exists in the device");
 
-	VkCommandBufferAllocateInfo cmd_buf_allocate_info{};
-	cmd_buf_allocate_info.sType              = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	cmd_buf_allocate_info.commandPool        = command_pool->get_handle();
-	cmd_buf_allocate_info.level              = level;
-	cmd_buf_allocate_info.commandBufferCount = 1;
-
-	VkCommandBuffer command_buffer;
-	VK_CHECK(vkAllocateCommandBuffers(handle, &cmd_buf_allocate_info, &command_buffer));
+	vk::CommandBuffer command_buffer = allocateCommandBuffers({command_pool->get_handle(), level, 1})[0];
 
 	// If requested, also start recording for the new command buffer
 	if (begin)
 	{
-		VkCommandBufferBeginInfo command_buffer_info{};
-		command_buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		VK_CHECK(vkBeginCommandBuffer(command_buffer, &command_buffer_info));
+		command_buffer.begin(vk::CommandBufferBeginInfo{});
 	}
 
 	return command_buffer;
 }
 
-void Device::flush_command_buffer(VkCommandBuffer command_buffer, VkQueue queue, bool free)
+void Device::flush_command_buffer(vk::CommandBuffer command_buffer, vk::Queue queue, bool free)
 {
-	if (command_buffer == VK_NULL_HANDLE)
+	if (!command_buffer)
 	{
 		return;
 	}
 
-	VK_CHECK(vkEndCommandBuffer(command_buffer));
-
-	VkSubmitInfo submit_info{};
-	submit_info.sType              = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	submit_info.commandBufferCount = 1;
-	submit_info.pCommandBuffers    = &command_buffer;
+	command_buffer.end();
 
 	// Create fence to ensure that the command buffer has finished executing
-	VkFenceCreateInfo fence_info{};
-	fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	fence_info.flags = VK_FLAGS_NONE;
-
-	VkFence fence;
-	VK_CHECK(vkCreateFence(handle, &fence_info, nullptr, &fence));
+	vk::Fence fence = fence_pool->request_fence();
 
 	// Submit to the queue
-	VkResult result = vkQueueSubmit(queue, 1, &submit_info, fence);
-	// Wait for the fence to signal that command buffer has finished executing
-	VK_CHECK(vkWaitForFences(handle, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+	vk::SubmitInfo submit_info;
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers    = &command_buffer;
+	queue.submit(submit_info, fence);
 
-	vkDestroyFence(handle, fence, nullptr);
+	// Wait for the fence to signal that command buffer has finished executing
+	fence_pool->wait();
+	fence_pool->reset();
 
 	if (command_pool && free)
 	{
-		vkFreeCommandBuffers(handle, command_pool->get_handle(), 1, &command_buffer);
+		freeCommandBuffers(command_pool->get_handle(), command_buffer);
 	}
 }
 
@@ -588,18 +540,129 @@ CommandBuffer &Device::request_command_buffer()
 	return command_pool->request_command_buffer();
 }
 
-VkFence Device::request_fence()
+vk::Fence Device::request_fence()
 {
 	return fence_pool->request_fence();
 }
 
-VkResult Device::wait_idle()
+vk::Result Device::wait_idle()
 {
-	return vkDeviceWaitIdle(handle);
+	waitIdle();
+	return vk::Result::eSuccess;
 }
 
 ResourceCache &Device::get_resource_cache()
 {
 	return resource_cache;
 }
+
+void Device::with_command_buffer(const std::function<void(const vk::CommandBuffer &)> &f)
+{
+	auto &command_buffer = create_command_buffer(vk::CommandBufferLevel::ePrimary);
+	command_buffer.begin({vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+	f(command_buffer);
+	flush_command_buffer(command_buffer, primary_queue->get_handle(), true);
+}
+
+core::Buffer Device::stage_to_device_buffer(const void *data, vk::DeviceSize size, const vk::BufferUsageFlags &usage_flags)
+{
+	auto result = core::Buffer{
+	    *this,
+	    size,
+	    usage_flags | vk::BufferUsageFlagBits::eTransferDst,
+	    vma::MemoryUsage::eGpuOnly};
+
+	core::Buffer stage_buffer{
+	    *this,
+	    size,
+	    vk::BufferUsageFlagBits::eTransferSrc,
+	    vma::MemoryUsage::eCpuOnly};
+
+	stage_buffer.update(static_cast<const uint8_t *>(data), size);
+	with_command_buffer([&](const vk::CommandBuffer &command_buffer) {
+		command_buffer.copyBuffer(stage_buffer.get_handle(), result.get_handle(), vk::BufferCopy{0, 0, size});
+	});
+
+	return result;
+};
+
+void Device::stage_to_image(
+    const void *                            data,
+    vk::DeviceSize                          size,
+    const std::vector<vk::BufferImageCopy> &regions,
+    const core::Image &                     image)
+{
+	core::Buffer stage_buffer{
+	    *this,
+	    size,
+	    vk::BufferUsageFlagBits::eTransferSrc,
+	    vma::MemoryUsage::eCpuOnly};
+
+	stage_buffer.update(static_cast<const uint8_t *>(data), size);
+	const vk::ImageSubresource &subresource = image.get_subresource();
+
+	vk::ImageSubresourceRange subresource_range{
+	    subresource.aspectMask,
+	    0, subresource.mipLevel,
+	    0, subresource.arrayLayer};
+
+	with_command_buffer([&](const vk::CommandBuffer &command_buffer) {
+		// Prepare for transfer
+		vkb::insert_image_memory_barrier(
+		    command_buffer, image.get_handle(),
+		    {}, vk::AccessFlagBits::eTransferWrite,
+		    vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal,
+		    vk::PipelineStageFlagBits::eHost, vk::PipelineStageFlagBits::eTransfer,
+		    subresource_range);
+
+		// Copy
+		command_buffer.copyBufferToImage(stage_buffer.get_handle(), image.get_handle(), vk::ImageLayout::eTransferDstOptimal, regions);
+
+		// Prepare for fragmen shader
+		vkb::insert_image_memory_barrier(
+		    command_buffer, image.get_handle(),
+		    vk::AccessFlagBits::eTransferWrite, vk::AccessFlagBits::eShaderRead,
+		    vk::ImageLayout::eTransferDstOptimal, vk::ImageLayout::eShaderReadOnlyOptimal,
+		    vk::PipelineStageFlagBits::eTransfer, vk::PipelineStageFlagBits::eFragmentShader,
+		    subresource_range);
+	});
+}
+
+void Device::stage_to_image(
+    const void *       data,
+    vk::DeviceSize     size,
+    const core::Image &image)
+{
+	const vk::ImageSubresource &subresource = image.get_subresource();
+	auto                        copy_region = vk::BufferImageCopy{0, 0, 0, {subresource.aspectMask, 0, 0, subresource.arrayLayer}, {}, image.get_extent()};
+	stage_to_image(data, size, {copy_region}, image);
+}
+
+core::Image Device::stage_to_device_image(
+    const void *            data,
+    vk::DeviceSize          size,
+    const vk::Extent3D &    extent,
+    vk::Format              format,
+    vk::ImageUsageFlags     image_usage,
+    vma::MemoryUsage        memory_usage,
+    vk::SampleCountFlagBits sample_count,
+    uint32_t                mip_levels,
+    uint32_t                array_layers,
+    vk::ImageTiling         tiling,
+    vk::ImageCreateFlags    flags)
+
+{
+	auto result = core::Image{
+	    *this,
+	    extent, format,
+	    image_usage,
+	    memory_usage,
+	    sample_count,
+	    mip_levels,
+	    array_layers,
+	    tiling, flags};
+	stage_to_image(data, size, result);
+	return result;
+}
+
 }        // namespace vkb

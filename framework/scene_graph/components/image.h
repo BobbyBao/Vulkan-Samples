@@ -36,7 +36,7 @@ namespace sg
  * @param format Vulkan format
  * @return Whether the vulkan format is ASTC
  */
-bool is_astc(VkFormat format);
+bool is_astc(vk::Format format);
 
 /**
  * @brief Mipmap information
@@ -50,7 +50,7 @@ struct Mipmap
 	uint32_t offset = 0;
 
 	/// Width depth and height of the mipmap
-	VkExtent3D extent = {0, 0, 0};
+	vk::Extent3D extent;
 };
 
 class Image : public Component
@@ -68,30 +68,32 @@ class Image : public Component
 
 	void clear_data();
 
-	VkFormat get_format() const;
+	vk::Format get_format() const;
 
-	const VkExtent3D &get_extent() const;
+	const vk::Extent3D &get_extent() const;
 
 	const uint32_t get_layers() const;
 
 	const std::vector<Mipmap> &get_mipmaps() const;
 
-	const std::vector<std::vector<VkDeviceSize>> &get_offsets() const;
+	const std::vector<std::vector<vk::DeviceSize>> &get_offsets() const;
 
 	void generate_mipmaps();
 
-	void create_vk_image(Device &device, VkImageViewType image_view_type = VK_IMAGE_VIEW_TYPE_2D, VkImageCreateFlags flags = 0);
+	void create_vk_image(Device &device, vk::ImageViewType image_view_type = vk::ImageViewType::e2D, vk::ImageCreateFlags flags = {});
 
 	const core::Image &get_vk_image() const;
 
 	const core::ImageView &get_vk_image_view() const;
+
+    std::vector<vk::BufferImageCopy> get_buffer_copy_regions() const;
 
   protected:
 	std::vector<uint8_t> &get_mut_data();
 
 	void set_data(const uint8_t *raw_data, size_t size);
 
-	void set_format(VkFormat format);
+	void set_format(vk::Format format);
 
 	void set_width(uint32_t width);
 
@@ -101,7 +103,7 @@ class Image : public Component
 
 	void set_layers(uint32_t layers);
 
-	void set_offsets(const std::vector<std::vector<VkDeviceSize>> &offsets);
+	void set_offsets(const std::vector<std::vector<vk::DeviceSize>> &offsets);
 
 	Mipmap &get_mipmap(size_t index);
 
@@ -110,14 +112,14 @@ class Image : public Component
   private:
 	std::vector<uint8_t> data;
 
-	VkFormat format{VK_FORMAT_UNDEFINED};
+	vk::Format format{vk::Format::eUndefined};
 
 	uint32_t layers{1};
 
 	std::vector<Mipmap> mipmaps{{}};
 
 	// Offsets stored like offsets[array_layer][mipmap_layer]
-	std::vector<std::vector<VkDeviceSize>> offsets;
+	std::vector<std::vector<vk::DeviceSize>> offsets;
 
 	std::unique_ptr<core::Image> vk_image;
 

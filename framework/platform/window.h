@@ -43,9 +43,9 @@ class Window
 	/**
 	 * @brief Gets a handle from the platform's Vulkan surface 
 	 * @param instance A Vulkan instance
-	 * @returns A VkSurfaceKHR handle, for use by the application
+	 * @returns A vk::SurfaceKHR handle, for use by the application
 	 */
-	virtual VkSurfaceKHR create_surface(Instance &instance) = 0;
+	virtual vk::SurfaceKHR create_surface(Instance &instance) = 0;
 
 	/**
 	 * @brief Checks if the window should be closed

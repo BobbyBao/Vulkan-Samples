@@ -31,7 +31,7 @@ struct ShaderResource;
  * @brief Caches DescriptorSet objects for the shader's set index.
  *        Creates a DescriptorPool to allocate the DescriptorSet objects
  */
-class DescriptorSetLayout
+class DescriptorSetLayout : protected vk::DescriptorSetLayout
 {
   public:
 	/**
@@ -52,22 +52,20 @@ class DescriptorSetLayout
 
 	DescriptorSetLayout &operator=(DescriptorSetLayout &&) = delete;
 
-	VkDescriptorSetLayout get_handle() const;
+	const vk::DescriptorSetLayout &get_handle() const;
 
-	const std::vector<VkDescriptorSetLayoutBinding> &get_bindings() const;
+	const std::vector<vk::DescriptorSetLayoutBinding> &get_bindings() const;
 
-	std::unique_ptr<VkDescriptorSetLayoutBinding> get_layout_binding(uint32_t binding_index) const;
+	std::unique_ptr<vk::DescriptorSetLayoutBinding> get_layout_binding(uint32_t binding_index) const;
 
-	std::unique_ptr<VkDescriptorSetLayoutBinding> get_layout_binding(const std::string &name) const;
+	std::unique_ptr<vk::DescriptorSetLayoutBinding> get_layout_binding(const std::string &name) const;
 
   private:
 	Device &device;
 
-	VkDescriptorSetLayout handle{VK_NULL_HANDLE};
+	std::vector<vk::DescriptorSetLayoutBinding> bindings;
 
-	std::vector<VkDescriptorSetLayoutBinding> bindings;
-
-	std::unordered_map<uint32_t, VkDescriptorSetLayoutBinding> bindings_lookup;
+	std::unordered_map<uint32_t, vk::DescriptorSetLayoutBinding> bindings_lookup;
 
 	std::unordered_map<std::string, uint32_t> resources_lookup;
 };

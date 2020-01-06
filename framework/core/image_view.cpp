@@ -24,14 +24,14 @@ namespace vkb
 {
 namespace core
 {
-ImageView::ImageView(Image &img, VkImageViewType view_type, VkFormat format) :
+ImageView::ImageView(Image &img, vk::ImageViewType view_type, vk::Format format) :
     device{img.get_device()},
     image{&img},
     format{format}
 {
-	if (format == VK_FORMAT_UNDEFINED)
+	if (format == vk::Format::eUndefined)
 	{
-		this->format = format = image->get_format();
+		const_cast<vk::Format&>(this->format) = format = image->get_format();
 	}
 
 	subresource_range.levelCount = image->get_subresource().mipLevel;
@@ -39,29 +39,24 @@ ImageView::ImageView(Image &img, VkImageViewType view_type, VkFormat format) :
 
 	if (is_depth_only_format(format))
 	{
-		subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+		subresource_range.aspectMask = vk::ImageAspectFlagBits::eDepth;
 	}
 	else if (is_depth_stencil_format(format))
 	{
-		subresource_range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+		subresource_range.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
 	}
 	else
 	{
-		subresource_range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		subresource_range.aspectMask = vk::ImageAspectFlagBits::eColor;
 	}
 
-	VkImageViewCreateInfo view_info{VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
+	vk::ImageViewCreateInfo view_info;
 	view_info.image            = image->get_handle();
 	view_info.viewType         = view_type;
 	view_info.format           = format;
 	view_info.subresourceRange = subresource_range;
 
-	auto result = vkCreateImageView(device.get_handle(), &view_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create ImageView"};
-	}
+	static_cast<vk::ImageView &>(*this) = device.get_handle().createImageView(view_info);
 
 	// Register this image view to its image
 	// in order to be notified when it gets moved
@@ -69,9 +64,9 @@ ImageView::ImageView(Image &img, VkImageViewType view_type, VkFormat format) :
 }
 
 ImageView::ImageView(ImageView &&other) :
+    vk::ImageView{other},
     device{other.device},
     image{other.image},
-    handle{other.handle},
     format{other.format},
     subresource_range{other.subresource_range}
 {
@@ -80,15 +75,12 @@ ImageView::ImageView(ImageView &&other) :
 	views.erase(&other);
 	views.emplace(this);
 
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::ImageView &>(other) = nullptr;
 }
 
 ImageView::~ImageView()
 {
-	if (handle != VK_NULL_HANDLE)
-	{
-		vkDestroyImageView(device.get_handle(), handle, nullptr);
-	}
+	device.get_handle().destroy(*this);
 }
 
 const Image &ImageView::get_image() const
@@ -102,24 +94,24 @@ void ImageView::set_image(Image &img)
 	image = &img;
 }
 
-VkImageView ImageView::get_handle() const
+vk::ImageView ImageView::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::ImageView &>(*this);
 }
 
-VkFormat ImageView::get_format() const
+vk::Format ImageView::get_format() const
 {
 	return format;
 }
 
-VkImageSubresourceRange ImageView::get_subresource_range() const
+vk::ImageSubresourceRange ImageView::get_subresource_range() const
 {
 	return subresource_range;
 }
 
-VkImageSubresourceLayers ImageView::get_subresource_layers() const
+vk::ImageSubresourceLayers ImageView::get_subresource_layers() const
 {
-	VkImageSubresourceLayers subresource{};
+	vk::ImageSubresourceLayers subresource;
 	subresource.aspectMask     = subresource_range.aspectMask;
 	subresource.baseArrayLayer = subresource_range.baseArrayLayer;
 	subresource.layerCount     = subresource_range.layerCount;

@@ -39,23 +39,23 @@ ComputeNBody::~ComputeNBody()
 	{
 		// Graphics
 		graphics.uniform_buffer.reset();
-		vkDestroyPipeline(get_device().get_handle(), graphics.pipeline, nullptr);
-		vkDestroyPipelineLayout(get_device().get_handle(), graphics.pipeline_layout, nullptr);
-		vkDestroyDescriptorSetLayout(get_device().get_handle(), graphics.descriptor_set_layout, nullptr);
-		vkDestroySemaphore(get_device().get_handle(), graphics.semaphore, nullptr);
+		get_device().get_handle().destroy(graphics.pipeline);
+		get_device().get_handle().destroy(graphics.pipeline_layout);
+		get_device().get_handle().destroy(graphics.descriptor_set_layout);
+		get_device().get_handle().destroy(graphics.semaphore);
 
 		// Compute
 		compute.storage_buffer.reset();
 		compute.uniform_buffer.reset();
-		vkDestroyPipelineLayout(get_device().get_handle(), compute.pipeline_layout, nullptr);
-		vkDestroyDescriptorSetLayout(get_device().get_handle(), compute.descriptor_set_layout, nullptr);
-		vkDestroyPipeline(get_device().get_handle(), compute.pipeline_calculate, nullptr);
-		vkDestroyPipeline(get_device().get_handle(), compute.pipeline_integrate, nullptr);
-		vkDestroySemaphore(get_device().get_handle(), compute.semaphore, nullptr);
-		vkDestroyCommandPool(get_device().get_handle(), compute.command_pool, nullptr);
+		get_device().get_handle().destroy(compute.pipeline_layout);
+		get_device().get_handle().destroy(compute.descriptor_set_layout);
+		get_device().get_handle().destroy(compute.pipeline_calculate);
+		get_device().get_handle().destroy(compute.pipeline_integrate);
+		get_device().get_handle().destroy(compute.semaphore);
+		get_device().get_handle().destroy(compute.command_pool);
 
-		vkDestroySampler(get_device().get_handle(), textures.particle.sampler, nullptr);
-		vkDestroySampler(get_device().get_handle(), textures.gradient.sampler, nullptr);
+		get_device().get_handle().destroy(textures.particle.sampler);
+		get_device().get_handle().destroy(textures.gradient.sampler);
 	}
 }
 
@@ -83,13 +83,13 @@ void ComputeNBody::build_command_buffers()
 		create_command_buffers();
 	}
 
-	VkCommandBufferBeginInfo command_buffer_begin_info = vkb::initializers::command_buffer_begin_info();
+	vk::CommandBufferBeginInfo command_buffer_begin_info = vkb::initializers::command_buffer_begin_info();
 
-	VkClearValue clear_values[2];
-	clear_values[0].color        = {{0.0f, 0.0f, 0.0f, 1.0f}};
+	vk::ClearValue clear_values[2];
+	clear_values[0].color        = std::array<float, 4>{{0.0f, 0.0f, 0.0f, 1.0f}};
 	clear_values[1].depthStencil = {0.0f, 0};
 
-	VkRenderPassBeginInfo render_pass_begin_info    = vkb::initializers::render_pass_begin_info();
+	vk::RenderPassBeginInfo render_pass_begin_info  = vkb::initializers::render_pass_begin_info();
 	render_pass_begin_info.renderPass               = render_pass;
 	render_pass_begin_info.renderArea.offset.x      = 0;
 	render_pass_begin_info.renderArea.offset.y      = 0;
@@ -103,69 +103,63 @@ void ComputeNBody::build_command_buffers()
 		// Set target frame buffer
 		render_pass_begin_info.framebuffer = framebuffers[i];
 
-		VK_CHECK(vkBeginCommandBuffer(draw_cmd_buffers[i], &command_buffer_begin_info));
+		draw_cmd_buffers[i].begin(command_buffer_begin_info);
 
 		// Draw the particle system using the update vertex buffer
+		draw_cmd_buffers[i].beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-		vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+		vk::Viewport viewport = vkb::initializers::viewport((float) width, (float) height, 0.0f, 1.0f);
+		draw_cmd_buffers[i].setViewport(0, viewport);
 
-		VkViewport viewport = vkb::initializers::viewport((float) width, (float) height, 0.0f, 1.0f);
-		vkCmdSetViewport(draw_cmd_buffers[i], 0, 1, &viewport);
+		vk::Rect2D scissor = vkb::initializers::rect2D(width, height, 0, 0);
+		draw_cmd_buffers[i].setScissor(0, scissor);
 
-		VkRect2D scissor = vkb::initializers::rect2D(width, height, 0, 0);
-		vkCmdSetScissor(draw_cmd_buffers[i], 0, 1, &scissor);
+		draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, graphics.pipeline);
+		draw_cmd_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphics.pipeline_layout, 0, graphics.descriptor_set, nullptr);
 
-		vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics.pipeline);
-		vkCmdBindDescriptorSets(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics.pipeline_layout, 0, 1, &graphics.descriptor_set, 0, NULL);
-
-		VkDeviceSize offsets[1] = {0};
-		vkCmdBindVertexBuffers(draw_cmd_buffers[i], 0, 1, compute.storage_buffer->get(), offsets);
-		vkCmdDraw(draw_cmd_buffers[i], num_particles, 1, 0, 0);
+		vk::DeviceSize offsets[1] = {0};
+		draw_cmd_buffers[i].bindVertexBuffers(0, 1, compute.storage_buffer->get(), offsets);
+		draw_cmd_buffers[i].draw(num_particles, 1, 0, 0);
 
 		draw_ui(draw_cmd_buffers[i]);
 
-		vkCmdEndRenderPass(draw_cmd_buffers[i]);
-
-		VK_CHECK(vkEndCommandBuffer(draw_cmd_buffers[i]));
+		draw_cmd_buffers[i].endRenderPass();
+		draw_cmd_buffers[i].end();
 	}
 }
 
 void ComputeNBody::build_compute_command_buffer()
 {
-	VkCommandBufferBeginInfo command_buffer_begin_info = vkb::initializers::command_buffer_begin_info();
-
-	VK_CHECK(vkBeginCommandBuffer(compute.command_buffer, &command_buffer_begin_info));
+	compute.command_buffer.begin({vk::CommandBufferUsageFlagBits::eSimultaneousUse});
 
 	// First pass: Calculate particle movement
 	// -------------------------------------------------------------------------------------------------------
-	vkCmdBindPipeline(compute.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline_calculate);
-	vkCmdBindDescriptorSets(compute.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline_layout, 0, 1, &compute.descriptor_set, 0, 0);
-	vkCmdDispatch(compute.command_buffer, num_particles / 256, 1, 1);
+	compute.command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, compute.pipeline_calculate);
+	compute.command_buffer.bindDescriptorSets(vk::PipelineBindPoint::eCompute, compute.pipeline_layout, 0, compute.descriptor_set, nullptr);
+	compute.command_buffer.dispatch(num_particles / 256, 1, 1);
 
 	// Add memory barrier to ensure that the computer shader has finished writing to the buffer
-	VkBufferMemoryBarrier memory_barrier = vkb::initializers::buffer_memory_barrier();
-	memory_barrier.buffer                = compute.storage_buffer->get_handle();
-	memory_barrier.size                  = compute.storage_buffer->get_size();
-	memory_barrier.srcAccessMask         = VK_ACCESS_SHADER_WRITE_BIT;
-	memory_barrier.dstAccessMask         = VK_ACCESS_SHADER_READ_BIT;
-	memory_barrier.srcQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
-	memory_barrier.dstQueueFamilyIndex   = VK_QUEUE_FAMILY_IGNORED;
+	vk::BufferMemoryBarrier memory_barrier = vkb::initializers::buffer_memory_barrier();
+	memory_barrier.buffer                  = compute.storage_buffer->get_handle();
+	memory_barrier.size                    = compute.storage_buffer->get_size();
+	memory_barrier.srcAccessMask           = vk::AccessFlagBits::eShaderWrite;
+	memory_barrier.dstAccessMask           = vk::AccessFlagBits::eShaderRead;
+	memory_barrier.srcQueueFamilyIndex     = VK_QUEUE_FAMILY_IGNORED;
+	memory_barrier.dstQueueFamilyIndex     = VK_QUEUE_FAMILY_IGNORED;
 
-	vkCmdPipelineBarrier(
-	    compute.command_buffer,
-	    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-	    VK_FLAGS_NONE,
-	    0, nullptr,
-	    1, &memory_barrier,
-	    0, nullptr);
+	compute.command_buffer.pipelineBarrier(
+	    vk::PipelineStageFlagBits::eComputeShader,
+	    vk::PipelineStageFlagBits::eComputeShader,
+	    {},
+	    nullptr,
+	    memory_barrier,
+	    nullptr);
 
 	// Second pass: Integrate particles
 	// -------------------------------------------------------------------------------------------------------
-	vkCmdBindPipeline(compute.command_buffer, VK_PIPELINE_BIND_POINT_COMPUTE, compute.pipeline_integrate);
-	vkCmdDispatch(compute.command_buffer, num_particles / 256, 1, 1);
-
-	vkEndCommandBuffer(compute.command_buffer);
+	compute.command_buffer.bindPipeline(vk::PipelineBindPoint::eCompute, compute.pipeline_integrate);
+	compute.command_buffer.dispatch(num_particles / 256, 1, 1);
+	compute.command_buffer.end();
 }
 
 // Setup and fill the compute shader storage buffers containing the particles
@@ -195,11 +189,13 @@ void ComputeNBody::prepare_storage_buffers()
 	std::default_random_engine      rnd_engine(is_benchmark_mode() ? 0 : (unsigned) time(nullptr));
 	std::normal_distribution<float> rnd_distribution(0.0f, 1.0f);
 
-	for (uint32_t i = 0; i < static_cast<uint32_t>(attractors.size()); i++)
+    for (uint32_t i = 0; i < static_cast<uint32_t>(attractors.size()); i++)
 	{
-		for (uint32_t j = 0; j < PARTICLES_PER_ATTRACTOR; j++)
+        auto attractor_offset = i * PARTICLES_PER_ATTRACTOR;
+        #pragma omp parallel for
+		for (int32_t j = 0; j < PARTICLES_PER_ATTRACTOR; j++)
 		{
-			Particle &particle = particle_buffer[i * PARTICLES_PER_ATTRACTOR + j];
+			Particle &particle = particle_buffer[attractor_offset + j];
 
 			// First particle in group as heavy center of gravity
 			if (j == 0)
@@ -230,163 +226,119 @@ void ComputeNBody::prepare_storage_buffers()
 
 	compute.ubo.particle_count = num_particles;
 
-	VkDeviceSize storage_buffer_size = particle_buffer.size() * sizeof(Particle);
-
-	// Staging
-	// SSBO won't be changed on the host after upload so copy to device local memory
-	vkb::core::Buffer staging_buffer{get_device(), storage_buffer_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_ONLY};
-	staging_buffer.update(particle_buffer.data(), storage_buffer_size);
-
-	compute.storage_buffer = std::make_unique<vkb::core::Buffer>(get_device(),
-	                                                             storage_buffer_size,
-	                                                             VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-	                                                             VMA_MEMORY_USAGE_GPU_ONLY);
-
-	// Copy to staging buffer
-	VkCommandBuffer copy_command = device->create_command_buffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, true);
-	VkBufferCopy    copy_region  = {};
-	copy_region.size             = storage_buffer_size;
-	vkCmdCopyBuffer(copy_command, staging_buffer.get_handle(), compute.storage_buffer->get_handle(), 1, &copy_region);
-	device->flush_command_buffer(copy_command, queue, true);
+	compute.storage_buffer = std::make_unique<vkb::core::Buffer>(
+	    device->stage_to_device_buffer(
+	        particle_buffer,
+	        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eStorageBuffer));
 }
 
 void ComputeNBody::setup_descriptor_pool()
 {
-	std::vector<VkDescriptorPoolSize> pool_sizes =
-	    {
-	        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2),
-	        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1),
-	        vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 2)};
+	std::vector<vk::DescriptorPoolSize> pool_sizes{
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eUniformBuffer, 2),
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eStorageBuffer, 1),
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eCombinedImageSampler, 2),
+	};
 
-	VkDescriptorPoolCreateInfo descriptor_pool_create_info =
-	    vkb::initializers::descriptor_pool_create_info(
-	        static_cast<uint32_t>(pool_sizes.size()),
-	        pool_sizes.data(),
-	        2);
-
-	VK_CHECK(vkCreateDescriptorPool(get_device().get_handle(), &descriptor_pool_create_info, nullptr, &descriptor_pool));
+	descriptor_pool = get_device().get_handle().createDescriptorPool(vkb::initializers::descriptor_pool_create_info(pool_sizes, 2));
 }
 
 void ComputeNBody::setup_descriptor_set_layout()
 {
-	std::vector<VkDescriptorSetLayoutBinding> set_layout_bindings;
-	set_layout_bindings = {
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 2),
+	std::vector<vk::DescriptorSetLayoutBinding> set_layout_bindings{
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 0),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex, 2),
 	};
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout =
-	    vkb::initializers::descriptor_set_layout_create_info(
-	        set_layout_bindings.data(),
-	        static_cast<uint32_t>(set_layout_bindings.size()));
+	graphics.descriptor_set_layout = get_device().get_handle().createDescriptorSetLayout(vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings));
 
-	VK_CHECK(vkCreateDescriptorSetLayout(get_device().get_handle(), &descriptor_layout, nullptr, &graphics.descriptor_set_layout));
-
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info =
-	    vkb::initializers::pipeline_layout_create_info(
-	        &graphics.descriptor_set_layout,
-	        1);
-
-	VK_CHECK(vkCreatePipelineLayout(get_device().get_handle(), &pipeline_layout_create_info, nullptr, &graphics.pipeline_layout));
+	graphics.pipeline_layout = get_device().get_handle().createPipelineLayout(vkb::initializers::pipeline_layout_create_info(graphics.descriptor_set_layout));
 }
 
 void ComputeNBody::setup_descriptor_set()
 {
-	VkDescriptorSetAllocateInfo alloc_info =
-	    vkb::initializers::descriptor_set_allocate_info(
-	        descriptor_pool,
-	        &graphics.descriptor_set_layout,
-	        1);
+	vk::DescriptorSetAllocateInfo alloc_info =
+	    vkb::initializers::descriptor_set_allocate_info(descriptor_pool, graphics.descriptor_set_layout);
+	graphics.descriptor_set = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &graphics.descriptor_set));
+	vk::DescriptorBufferInfo buffer_descriptor         = create_descriptor(*graphics.uniform_buffer);
+	vk::DescriptorImageInfo  particle_image_descriptor = create_descriptor(textures.particle);
+	vk::DescriptorImageInfo  gradient_image_descriptor = create_descriptor(textures.gradient);
 
-	VkDescriptorBufferInfo            buffer_descriptor         = create_descriptor(*graphics.uniform_buffer);
-	VkDescriptorImageInfo             particle_image_descriptor = create_descriptor(textures.particle);
-	VkDescriptorImageInfo             gradient_image_descriptor = create_descriptor(textures.gradient);
-	std::vector<VkWriteDescriptorSet> write_descriptor_sets;
-	write_descriptor_sets = {
-	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &particle_image_descriptor),
-	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &gradient_image_descriptor),
-	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, &buffer_descriptor),
+	std::vector<vk::WriteDescriptorSet> write_descriptor_sets{
+	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, vk::DescriptorType::eCombinedImageSampler, 0, &particle_image_descriptor),
+	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, vk::DescriptorType::eCombinedImageSampler, 1, &gradient_image_descriptor),
+	    vkb::initializers::write_descriptor_set(graphics.descriptor_set, vk::DescriptorType::eUniformBuffer, 2, &buffer_descriptor),
 	};
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, NULL);
+	get_device().get_handle().updateDescriptorSets(write_descriptor_sets, nullptr);
 }
 
 void ComputeNBody::prepare_pipelines()
 {
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state =
-	    vkb::initializers::pipeline_input_assembly_state_create_info(
-	        VK_PRIMITIVE_TOPOLOGY_POINT_LIST,
-	        0,
-	        VK_FALSE);
+	vk::PipelineInputAssemblyStateCreateInfo input_assembly_state =
+	    vkb::initializers::pipeline_input_assembly_state_create_info(vk::PrimitiveTopology::ePointList);
 
-	VkPipelineRasterizationStateCreateInfo rasterization_state =
+	vk::PipelineRasterizationStateCreateInfo rasterization_state =
 	    vkb::initializers::pipeline_rasterization_state_create_info(
-	        VK_POLYGON_MODE_FILL,
-	        VK_CULL_MODE_NONE,
-	        VK_FRONT_FACE_COUNTER_CLOCKWISE,
-	        0);
+	        vk::PolygonMode::eFill,
+	        vk::CullModeFlagBits::eNone,
+	        vk::FrontFace::eCounterClockwise);
 
-	VkPipelineColorBlendAttachmentState blend_attachment_state =
-	    vkb::initializers::pipeline_color_blend_attachment_state(
-	        0xf,
-	        VK_FALSE);
+	// Additive blending
+	vk::PipelineColorBlendAttachmentState blend_attachment_state =
+	    vkb::initializers::pipeline_color_blend_attachment_state();
+	blend_attachment_state.blendEnable         = VK_TRUE;
+	blend_attachment_state.colorBlendOp        = vk::BlendOp::eAdd;
+	blend_attachment_state.srcColorBlendFactor = vk::BlendFactor::eOne;
+	blend_attachment_state.dstColorBlendFactor = vk::BlendFactor::eOne;
+	blend_attachment_state.alphaBlendOp        = vk::BlendOp::eAdd;
+	blend_attachment_state.srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+	blend_attachment_state.dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
 
-	VkPipelineColorBlendStateCreateInfo color_blend_state =
-	    vkb::initializers::pipeline_color_blend_state_create_info(
-	        1,
-	        &blend_attachment_state);
+	vk::PipelineColorBlendStateCreateInfo color_blend_state =
+	    vkb::initializers::pipeline_color_blend_state_create_info(blend_attachment_state);
 
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state =
-	    vkb::initializers::pipeline_depth_stencil_state_create_info(
-	        VK_FALSE,
-	        VK_FALSE,
-	        VK_COMPARE_OP_ALWAYS);
+	vk::PipelineDepthStencilStateCreateInfo depth_stencil_state =
+	    vkb::initializers::pipeline_depth_stencil_state_create_info();
 
-	VkPipelineViewportStateCreateInfo viewport_state =
-	    vkb::initializers::pipeline_viewport_state_create_info(1, 1, 0);
+	vk::PipelineViewportStateCreateInfo viewport_state =
+	    vkb::initializers::pipeline_viewport_state_create_info(1, 1);
 
-	VkPipelineMultisampleStateCreateInfo multisample_state =
-	    vkb::initializers::pipeline_multisample_state_create_info(
-	        VK_SAMPLE_COUNT_1_BIT,
-	        0);
+	vk::PipelineMultisampleStateCreateInfo multisample_state =
+	    vkb::initializers::pipeline_multisample_state_create_info();
 
-	std::vector<VkDynamicState> dynamic_state_enables = {
-	    VK_DYNAMIC_STATE_VIEWPORT,
-	    VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamicState =
-	    vkb::initializers::pipeline_dynamic_state_create_info(
-	        dynamic_state_enables.data(),
-	        static_cast<uint32_t>(dynamic_state_enables.size()),
-	        0);
+	std::vector<vk::DynamicState> dynamic_state_enables{
+	    vk::DynamicState::eViewport,
+	    vk::DynamicState::eScissor,
+	};
+	vk::PipelineDynamicStateCreateInfo dynamicState =
+	    vkb::initializers::pipeline_dynamic_state_create_info(dynamic_state_enables);
 
 	// Rendering pipeline
 	// Load shaders
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages;
-
-	shader_stages[0] = load_shader("compute_nbody/particle.vert", VK_SHADER_STAGE_VERTEX_BIT);
-	shader_stages[1] = load_shader("compute_nbody/particle.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages{
+	    load_shader("compute_nbody/particle.vert", vk::ShaderStageFlagBits::eVertex),
+	    load_shader("compute_nbody/particle.frag", vk::ShaderStageFlagBits::eFragment),
+	};
 
 	// Vertex bindings and attributes
-	const std::vector<VkVertexInputBindingDescription> vertex_input_bindings = {
-	    vkb::initializers::vertex_input_binding_description(0, sizeof(Particle), VK_VERTEX_INPUT_RATE_VERTEX),
+	const std::vector<vk::VertexInputBindingDescription> vertex_input_bindings{
+	    vkb::initializers::vertex_input_binding_description(0, sizeof(Particle)),
 	};
-	const std::vector<VkVertexInputAttributeDescription> vertex_input_attributes = {
-	    vkb::initializers::vertex_input_attribute_description(0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Particle, pos)),
-	    vkb::initializers::vertex_input_attribute_description(0, 1, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Particle, vel))};
-	VkPipelineVertexInputStateCreateInfo vertex_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
-	vertex_input_state.vertexBindingDescriptionCount        = static_cast<uint32_t>(vertex_input_bindings.size());
-	vertex_input_state.pVertexBindingDescriptions           = vertex_input_bindings.data();
-	vertex_input_state.vertexAttributeDescriptionCount      = static_cast<uint32_t>(vertex_input_attributes.size());
-	vertex_input_state.pVertexAttributeDescriptions         = vertex_input_attributes.data();
+	const std::vector<vk::VertexInputAttributeDescription> vertex_input_attributes{
+	    vkb::initializers::vertex_input_attribute_description(0, 0, vk::Format::eR32G32B32A32Sfloat, offsetof(Particle, pos)),
+	    vkb::initializers::vertex_input_attribute_description(0, 1, vk::Format::eR32G32B32A32Sfloat, offsetof(Particle, vel)),
+	};
 
-	VkGraphicsPipelineCreateInfo pipeline_create_info =
-	    vkb::initializers::pipeline_create_info(
-	        graphics.pipeline_layout,
-	        render_pass,
-	        0);
+	vk::PipelineVertexInputStateCreateInfo vertex_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
+	vertex_input_state.vertexBindingDescriptionCount          = static_cast<uint32_t>(vertex_input_bindings.size());
+	vertex_input_state.pVertexBindingDescriptions             = vertex_input_bindings.data();
+	vertex_input_state.vertexAttributeDescriptionCount        = static_cast<uint32_t>(vertex_input_attributes.size());
+	vertex_input_state.pVertexAttributeDescriptions           = vertex_input_attributes.data();
 
+	vk::GraphicsPipelineCreateInfo pipeline_create_info =
+	    vkb::initializers::pipeline_create_info(graphics.pipeline_layout, render_pass);
 	pipeline_create_info.pVertexInputState   = &vertex_input_state;
 	pipeline_create_info.pInputAssemblyState = &input_assembly_state;
 	pipeline_create_info.pRasterizationState = &rasterization_state;
@@ -397,19 +349,8 @@ void ComputeNBody::prepare_pipelines()
 	pipeline_create_info.pDynamicState       = &dynamicState;
 	pipeline_create_info.stageCount          = static_cast<uint32_t>(shader_stages.size());
 	pipeline_create_info.pStages             = shader_stages.data();
-	pipeline_create_info.renderPass          = render_pass;
 
-	// Additive blending
-	blend_attachment_state.colorWriteMask      = 0xF;
-	blend_attachment_state.blendEnable         = VK_TRUE;
-	blend_attachment_state.colorBlendOp        = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	blend_attachment_state.alphaBlendOp        = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &graphics.pipeline));
+	graphics.pipeline = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 }
 
 void ComputeNBody::prepare_graphics()
@@ -421,77 +362,72 @@ void ComputeNBody::prepare_graphics()
 	setup_descriptor_set();
 
 	// Semaphore for compute & graphics sync
-	VkSemaphoreCreateInfo semaphore_create_info = vkb::initializers::semaphore_create_info();
-	VK_CHECK(vkCreateSemaphore(get_device().get_handle(), &semaphore_create_info, nullptr, &graphics.semaphore));
+	graphics.semaphore = get_device().get_handle().createSemaphore(vkb::initializers::semaphore_create_info());
 }
 
 void ComputeNBody::prepare_compute()
 {
+	auto computeQueueIndex = get_device().get_queue_family_index(vk::QueueFlagBits::eCompute);
 	// Get compute queue
-	vkGetDeviceQueue(get_device().get_handle(), get_device().get_queue_family_index(VK_QUEUE_COMPUTE_BIT), 0, &compute.queue);
+	compute.queue = get_device().get_handle().getQueue(computeQueueIndex, 0);
 
 	// Create compute pipeline
 	// Compute pipelines are created separate from graphics pipelines even if they use the same queue (family index)
-
-	std::vector<VkDescriptorSetLayoutBinding> set_layout_bindings = {
+	std::vector<vk::DescriptorSetLayoutBinding> set_layout_bindings = {
 	    // Binding 0 : Particle position storage buffer
 	    vkb::initializers::descriptor_set_layout_binding(
-	        VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-	        VK_SHADER_STAGE_COMPUTE_BIT,
+	        vk::DescriptorType::eStorageBuffer,
+	        vk::ShaderStageFlagBits::eCompute,
 	        0),
 	    // Binding 1 : Uniform buffer
 	    vkb::initializers::descriptor_set_layout_binding(
-	        VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-	        VK_SHADER_STAGE_COMPUTE_BIT,
+	        vk::DescriptorType::eUniformBuffer,
+	        vk::ShaderStageFlagBits::eCompute,
 	        1),
 	};
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout =
-	    vkb::initializers::descriptor_set_layout_create_info(
-	        set_layout_bindings.data(),
-	        static_cast<uint32_t>(set_layout_bindings.size()));
+	vk::DescriptorSetLayoutCreateInfo descriptor_layout =
+	    vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings);
 
-	VK_CHECK(vkCreateDescriptorSetLayout(get_device().get_handle(), &descriptor_layout, nullptr, &compute.descriptor_set_layout));
+	compute.descriptor_set_layout = get_device().get_handle().createDescriptorSetLayout(descriptor_layout);
 
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info =
-	    vkb::initializers::pipeline_layout_create_info(
-	        &compute.descriptor_set_layout,
-	        1);
+	vk::PipelineLayoutCreateInfo pipeline_layout_create_info =
+	    vkb::initializers::pipeline_layout_create_info(compute.descriptor_set_layout);
 
-	VK_CHECK(vkCreatePipelineLayout(get_device().get_handle(), &pipeline_layout_create_info, nullptr, &compute.pipeline_layout));
+	compute.pipeline_layout = get_device().get_handle().createPipelineLayout(pipeline_layout_create_info);
 
-	VkDescriptorSetAllocateInfo alloc_info =
+	vk::DescriptorSetAllocateInfo alloc_info =
 	    vkb::initializers::descriptor_set_allocate_info(
 	        descriptor_pool,
 	        &compute.descriptor_set_layout,
 	        1);
 
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &compute.descriptor_set));
+	compute.descriptor_set = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
-	VkDescriptorBufferInfo            storage_buffer_descriptor = create_descriptor(*compute.storage_buffer);
-	VkDescriptorBufferInfo            uniform_buffer_descriptor = create_descriptor(*compute.uniform_buffer);
-	std::vector<VkWriteDescriptorSet> compute_write_descriptor_sets =
+	vk::DescriptorBufferInfo            storage_buffer_descriptor = create_descriptor(*compute.storage_buffer);
+	vk::DescriptorBufferInfo            uniform_buffer_descriptor = create_descriptor(*compute.uniform_buffer);
+	std::vector<vk::WriteDescriptorSet> compute_write_descriptor_sets =
 	    {
 	        // Binding 0 : Particle position storage buffer
 	        vkb::initializers::write_descriptor_set(
 	            compute.descriptor_set,
-	            VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+	            vk::DescriptorType::eStorageBuffer,
 	            0,
 	            &storage_buffer_descriptor),
 	        // Binding 1 : Uniform buffer
 	        vkb::initializers::write_descriptor_set(
 	            compute.descriptor_set,
-	            VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+	            vk::DescriptorType::eUniformBuffer,
 	            1,
 	            &uniform_buffer_descriptor)};
 
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(compute_write_descriptor_sets.size()), compute_write_descriptor_sets.data(), 0, NULL);
+	get_device().get_handle().updateDescriptorSets(compute_write_descriptor_sets, nullptr);
 
 	// Create pipelines
-	VkComputePipelineCreateInfo compute_pipeline_create_info = vkb::initializers::compute_pipeline_create_info(compute.pipeline_layout, 0);
+	vk::ComputePipelineCreateInfo compute_pipeline_create_info = vkb::initializers::compute_pipeline_create_info(compute.pipeline_layout);
 
 	// 1st pass
-	compute_pipeline_create_info.stage = load_shader("compute_nbody/particle_calculate.comp", VK_SHADER_STAGE_COMPUTE_BIT);
+	compute_pipeline_create_info.stage = load_shader("compute_nbody/particle_calculate.comp", vk::ShaderStageFlagBits::eCompute);
 
 	// Set shader parameters via specialization constants
 	struct SpecializationData
@@ -502,7 +438,7 @@ void ComputeNBody::prepare_compute()
 		float    soften;
 	} specialization_data;
 
-	std::vector<VkSpecializationMapEntry> specialization_map_entries;
+	std::vector<vk::SpecializationMapEntry> specialization_map_entries;
 	specialization_map_entries.push_back(vkb::initializers::specialization_map_entry(0, offsetof(SpecializationData, shaderd_data_size), sizeof(uint32_t)));
 	specialization_map_entries.push_back(vkb::initializers::specialization_map_entry(1, offsetof(SpecializationData, gravity), sizeof(float)));
 	specialization_map_entries.push_back(vkb::initializers::specialization_map_entry(2, offsetof(SpecializationData, power), sizeof(float)));
@@ -514,42 +450,42 @@ void ComputeNBody::prepare_compute()
 	specialization_data.power   = 0.75f;
 	specialization_data.soften  = 0.05f;
 
-	VkSpecializationInfo specialization_info =
+	vk::SpecializationInfo specialization_info =
 	    vkb::initializers::specialization_info(static_cast<uint32_t>(specialization_map_entries.size()), specialization_map_entries.data(), sizeof(specialization_data), &specialization_data);
 	compute_pipeline_create_info.stage.pSpecializationInfo = &specialization_info;
 
-	VK_CHECK(vkCreateComputePipelines(get_device().get_handle(), pipeline_cache, 1, &compute_pipeline_create_info, nullptr, &compute.pipeline_calculate));
+	compute.pipeline_calculate = get_device().get_handle().createComputePipeline(pipeline_cache, compute_pipeline_create_info);
 
 	// 2nd pass
-	compute_pipeline_create_info.stage = load_shader("compute_nbody/particle_integrate.comp", VK_SHADER_STAGE_COMPUTE_BIT);
-	VK_CHECK(vkCreateComputePipelines(get_device().get_handle(), pipeline_cache, 1, &compute_pipeline_create_info, nullptr, &compute.pipeline_integrate));
+	compute_pipeline_create_info.stage = load_shader("compute_nbody/particle_integrate.comp", vk::ShaderStageFlagBits::eCompute);
+
+	compute.pipeline_integrate = get_device().get_handle().createComputePipeline(pipeline_cache, compute_pipeline_create_info);
 
 	// Separate command pool as queue family for compute may be different than graphics
-	VkCommandPoolCreateInfo command_pool_create_info = {};
-	command_pool_create_info.sType                   = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-	command_pool_create_info.queueFamilyIndex        = get_device().get_queue_family_index(VK_QUEUE_COMPUTE_BIT);
-	command_pool_create_info.flags                   = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-	VK_CHECK(vkCreateCommandPool(get_device().get_handle(), &command_pool_create_info, nullptr, &compute.command_pool));
+	vk::CommandPoolCreateInfo command_pool_create_info = {};
+	command_pool_create_info.queueFamilyIndex          = computeQueueIndex;
+	command_pool_create_info.flags                     = vk::CommandPoolCreateFlagBits::eResetCommandBuffer;
+
+	compute.command_pool = get_device().get_handle().createCommandPool(command_pool_create_info);
 
 	// Create a command buffer for compute operations
-	VkCommandBufferAllocateInfo command_buffer_allocate_info =
+	vk::CommandBufferAllocateInfo command_buffer_allocate_info =
 	    vkb::initializers::command_buffer_allocate_info(
 	        compute.command_pool,
-	        VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+	        vk::CommandBufferLevel::ePrimary,
 	        1);
 
-	VK_CHECK(vkAllocateCommandBuffers(get_device().get_handle(), &command_buffer_allocate_info, &compute.command_buffer));
+	compute.command_buffer = get_device().get_handle().allocateCommandBuffers(command_buffer_allocate_info)[0];
 
 	// Semaphore for compute & graphics sync
-	VkSemaphoreCreateInfo semaphore_create_info = vkb::initializers::semaphore_create_info();
-	VK_CHECK(vkCreateSemaphore(get_device().get_handle(), &semaphore_create_info, nullptr, &compute.semaphore));
+	compute.semaphore = get_device().get_handle().createSemaphore(vkb::initializers::semaphore_create_info());
 
 	// Signal the semaphore
-	VkSubmitInfo submit_info         = {VK_STRUCTURE_TYPE_SUBMIT_INFO};
+	vk::SubmitInfo submit_info;
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores    = &compute.semaphore;
-	VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
-	VK_CHECK(vkQueueWaitIdle(queue));
+	queue.submit(submit_info, nullptr);
+	queue.waitIdle();
 
 	// Build a single command buffer containing the compute dispatch commands
 	build_compute_command_buffer();
@@ -561,14 +497,14 @@ void ComputeNBody::prepare_uniform_buffers()
 	// Compute shader uniform buffer block
 	compute.uniform_buffer = std::make_unique<vkb::core::Buffer>(get_device(),
 	                                                             sizeof(compute.ubo),
-	                                                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-	                                                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+	                                                             vk::BufferUsageFlagBits::eUniformBuffer,
+	                                                             vma::MemoryUsage::eCpuToGpu);
 
 	// Vertex shader uniform buffer block
 	graphics.uniform_buffer = std::make_unique<vkb::core::Buffer>(get_device(),
 	                                                              sizeof(graphics.ubo),
-	                                                              VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-	                                                              VMA_MEMORY_USAGE_CPU_TO_GPU);
+	                                                              vk::BufferUsageFlagBits::eUniformBuffer,
+	                                                              vma::MemoryUsage::eCpuToGpu);
 
 	update_compute_uniform_buffers(1.0f);
 	update_graphics_uniform_buffers();
@@ -592,9 +528,9 @@ void ComputeNBody::draw()
 {
 	ApiVulkanSample::prepare_frame();
 
-	VkPipelineStageFlags graphics_wait_stage_masks[]  = {VK_PIPELINE_STAGE_VERTEX_INPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-	VkSemaphore          graphics_wait_semaphores[]   = {compute.semaphore, semaphores.acquired_image_ready};
-	VkSemaphore          graphics_signal_semaphores[] = {graphics.semaphore, semaphores.render_complete};
+	vk::PipelineStageFlags graphics_wait_stage_masks[]  = {vk::PipelineStageFlagBits::eVertexInput, vk::PipelineStageFlagBits::eColorAttachmentOutput};
+	vk::Semaphore          graphics_wait_semaphores[]   = {compute.semaphore, semaphores.acquired_image_ready};
+	vk::Semaphore          graphics_signal_semaphores[] = {graphics.semaphore, semaphores.render_complete};
 
 	// Submit graphics commands
 	submit_info.commandBufferCount   = 1;
@@ -604,15 +540,15 @@ void ComputeNBody::draw()
 	submit_info.pWaitDstStageMask    = graphics_wait_stage_masks;
 	submit_info.signalSemaphoreCount = 2;
 	submit_info.pSignalSemaphores    = graphics_signal_semaphores;
-	VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
+	queue.submit(submit_info, nullptr);
 
 	ApiVulkanSample::submit_frame();
 
 	// Wait for rendering finished
-	VkPipelineStageFlags wait_stage_mask = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+	vk::PipelineStageFlags wait_stage_mask = vk::PipelineStageFlagBits::eComputeShader;
 
 	// Submit compute commands
-	VkSubmitInfo compute_submit_info         = vkb::initializers::submit_info();
+	vk::SubmitInfo compute_submit_info       = vkb::initializers::submit_info();
 	compute_submit_info.commandBufferCount   = 1;
 	compute_submit_info.pCommandBuffers      = &compute.command_buffer;
 	compute_submit_info.waitSemaphoreCount   = 1;
@@ -620,7 +556,7 @@ void ComputeNBody::draw()
 	compute_submit_info.pWaitDstStageMask    = &wait_stage_mask;
 	compute_submit_info.signalSemaphoreCount = 1;
 	compute_submit_info.pSignalSemaphores    = &compute.semaphore;
-	VK_CHECK(vkQueueSubmit(compute.queue, 1, &compute_submit_info, VK_NULL_HANDLE));
+	compute.queue.submit(compute_submit_info, nullptr);
 }
 
 bool ComputeNBody::prepare(vkb::Platform &platform)

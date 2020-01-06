@@ -26,9 +26,9 @@
 // Ray tracing acceleration structure
 struct AccelerationStructure
 {
-	VkDeviceMemory            memory;
-	VkAccelerationStructureNV acceleration_structure;
-	uint64_t                  handle;
+	vk::DeviceMemory            memory;
+	vk::AccelerationStructureNV acceleration_structure;
+	uint64_t                    handle;
 };
 
 // Ray tracing geometry instance
@@ -50,17 +50,17 @@ struct GeometryInstance
 class RaytracingBasic : public ApiVulkanSample
 {
   public:
-	PFN_vkCreateAccelerationStructureNV                vkCreateAccelerationStructureNV;
-	PFN_vkDestroyAccelerationStructureNV               vkDestroyAccelerationStructureNV;
-	PFN_vkBindAccelerationStructureMemoryNV            vkBindAccelerationStructureMemoryNV;
-	PFN_vkGetAccelerationStructureHandleNV             vkGetAccelerationStructureHandleNV;
-	PFN_vkGetAccelerationStructureMemoryRequirementsNV vkGetAccelerationStructureMemoryRequirementsNV;
-	PFN_vkCmdBuildAccelerationStructureNV              vkCmdBuildAccelerationStructureNV;
-	PFN_vkCreateRayTracingPipelinesNV                  vkCreateRayTracingPipelinesNV;
-	PFN_vkGetRayTracingShaderGroupHandlesNV            vkGetRayTracingShaderGroupHandlesNV;
-	PFN_vkCmdTraceRaysNV                               vkCmdTraceRaysNV;
+	//PFN_vkCreateAccelerationStructureNV                vkCreateAccelerationStructureNV;
+	//PFN_vkDestroyAccelerationStructureNV               vkDestroyAccelerationStructureNV;
+	//PFN_vkBindAccelerationStructureMemoryNV            vkBindAccelerationStructureMemoryNV;
+	//PFN_vkGetAccelerationStructureHandleNV             vkGetAccelerationStructureHandleNV;
+	//PFN_vkGetAccelerationStructureMemoryRequirementsNV vkGetAccelerationStructureMemoryRequirementsNV;
+	//PFN_vkCmdBuildAccelerationStructureNV              vkCmdBuildAccelerationStructureNV;
+	//PFN_vkCreateRayTracingPipelinesNV                  vkCreateRayTracingPipelinesNV;
+	//PFN_vkGetRayTracingShaderGroupHandlesNV            vkGetRayTracingShaderGroupHandlesNV;
+	//PFN_vkCmdTraceRaysNV                               vkCmdTraceRaysNV;
 
-	VkPhysicalDeviceRayTracingPropertiesNV ray_tracing_properties{};
+	vk::PhysicalDeviceRayTracingPropertiesNV ray_tracing_properties;
 
 	AccelerationStructure bottom_level_acceleration_structure;
 	AccelerationStructure top_level_acceleration_structure;
@@ -72,10 +72,10 @@ class RaytracingBasic : public ApiVulkanSample
 
 	struct StorageImage
 	{
-		VkDeviceMemory memory;
-		VkImage        image;
-		VkImageView    view;
-		VkFormat       format;
+		vk::DeviceMemory memory;
+		vk::Image        image;
+		vk::ImageView    view;
+		vk::Format       format;
 	} storage_image;
 
 	struct UniformData
@@ -85,28 +85,28 @@ class RaytracingBasic : public ApiVulkanSample
 	} uniform_data;
 	std::unique_ptr<vkb::core::Buffer> ubo;
 
-	VkPipeline            pipeline;
-	VkPipelineLayout      pipeline_layout;
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::Pipeline            pipeline;
+	vk::PipelineLayout      pipeline_layout;
+	vk::DescriptorSet       descriptor_set;
+	vk::DescriptorSetLayout descriptor_set_layout;
 
 	RaytracingBasic();
 	~RaytracingBasic();
 
-	void         create_storage_image();
-	void         create_bottom_level_acceleration_structure(const VkGeometryNV *geometries);
-	void         create_top_level_acceleration_structure();
-	void         create_scene();
-	VkDeviceSize copy_shader_identifier(uint8_t *data, const uint8_t *shader_handle_storage, uint32_t group_index);
-	void         create_shader_binding_table();
-	void         create_descriptor_sets();
-	void         create_ray_tracing_pipeline();
-	void         create_uniform_buffer();
-	void         build_command_buffers() override;
-	void         update_uniform_buffers();
-	void         draw();
-	bool         prepare(vkb::Platform &platform) override;
-	virtual void render(float delta_time) override;
+	void           create_storage_image();
+	void           create_bottom_level_acceleration_structure(const vk::GeometryNV *geometries);
+	void           create_top_level_acceleration_structure();
+	void           create_scene();
+	vk::DeviceSize copy_shader_identifier(uint8_t *data, const uint8_t *shader_handle_storage, uint32_t group_index);
+	void           create_shader_binding_table();
+	void           create_descriptor_sets();
+	void           create_ray_tracing_pipeline();
+	void           create_uniform_buffer();
+	void           build_command_buffers() override;
+	void           update_uniform_buffers();
+	void           draw();
+	bool           prepare(vkb::Platform &platform) override;
+	virtual void   render(float delta_time) override;
 };
 
 std::unique_ptr<vkb::VulkanSample> create_raytracing_basic();

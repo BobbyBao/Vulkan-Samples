@@ -27,13 +27,16 @@
 
 #include <vk_mem_alloc.h>
 #include <volk.h>
+#include <vulkan/vulkan.hpp>
+
+#include "vma.hpp"
 
 #define VK_FLAGS_NONE 0        // Custom define for better code readability
 
 #define DEFAULT_FENCE_TIMEOUT 100000000000        // Default fence timeout in nanoseconds
 
 template <class T>
-using ShaderStageMap = std::map<VkShaderStageFlagBits, T>;
+using ShaderStageMap = std::map<vk::ShaderStageFlagBits, T>;
 
 template <class T>
 using BindingMap = std::map<uint32_t, std::map<uint32_t, T>>;
@@ -45,14 +48,16 @@ namespace vkb
  * @param format Vulkan format to check.
  * @return True if format is a depth only, false otherwise.
  */
-bool is_depth_only_format(VkFormat format);
+bool is_depth_only_format(vk::Format format);
+bool is_depth_only_format(vk::Format format);
 
 /**
  * @brief Helper function to determine if a Vulkan format is depth or stencil.
  * @param format Vulkan format to check.
  * @return True if format is a depth or stencil, false otherwise.
  */
-bool is_depth_stencil_format(VkFormat format);
+bool is_depth_stencil_format(vk::Format format);
+bool is_depth_stencil_format(vk::Format format);
 
 /**
  * @brief Helper function to determine a suitable supported depth format starting with 32 bit down to 16 bit
@@ -60,100 +65,100 @@ bool is_depth_stencil_format(VkFormat format);
  * @param depth_format The depth format (this can be modified)
  * @return false if none of the depth formats in the list is supported by the device
  */
-VkBool32 get_supported_depth_format(VkPhysicalDevice physical_device, VkFormat *depth_format);
+vk::Format get_supported_depth_format(vk::PhysicalDevice physical_device);
 
 /**
  * @brief Helper function to determine if a Vulkan descriptor type is a dynamic storage buffer or dynamic uniform buffer.
  * @param descriptor_type Vulkan descriptor type to check.
  * @return True if type is dynamic buffer, false otherwise.
  */
-bool is_dynamic_buffer_descriptor_type(VkDescriptorType descriptor_type);
+bool is_dynamic_buffer_descriptor_type(vk::DescriptorType descriptor_type);
 
 /**
  * @brief Helper function to determine if a Vulkan descriptor type is a buffer (either uniform or storage buffer, dynamic or not).
  * @param descriptor_type Vulkan descriptor type to check.
  * @return True if type is buffer, false otherwise.
  */
-bool is_buffer_descriptor_type(VkDescriptorType descriptor_type);
+bool is_buffer_descriptor_type(vk::DescriptorType descriptor_type);
 
 /**
  * @brief Helper function to get the bits per pixel of a Vulkan format.
  * @param format Vulkan format to check.
  * @return The bits per pixel of the given format, -1 for invalid formats.
  */
-int32_t get_bits_per_pixel(VkFormat format);
+int32_t get_bits_per_pixel(vk::Format format);
 
 /**
- * @brief Helper function to convert a VkFormat enum to a string
+ * @brief Helper function to convert a vk::Format enum to a string
  * @param format Vulkan format to convert.
  * @return The string to return.
  */
-const std::string to_string(VkFormat format);
+const std::string to_string(vk::Format format);
 
 /**
- * @brief Helper function to convert a VkPresentModeKHR to a string
+ * @brief Helper function to convert a vk::PresentModeKHR to a string
  * @param present_mode Vulkan present mode to convert.
  * @return The string to return.
  */
-const std::string to_string(VkPresentModeKHR present_mode);
+const std::string to_string(vk::PresentModeKHR present_mode);
 
 /**
- * @brief Helper function to convert a VkResult enum to a string
+ * @brief Helper function to convert a vk::Result enum to a string
  * @param format Vulkan result to convert.
  * @return The string to return.
  */
-const std::string to_string(VkResult result);
+const std::string to_string(vk::Result result);
 
 /**
- * @brief Helper function to convert a VkPhysicalDeviceType enum to a string
+ * @brief Helper function to convert a vk::PhysicalDeviceType enum to a string
  * @param format Vulkan physical device type to convert.
  * @return The string to return.
  */
-const std::string to_string(VkPhysicalDeviceType type);
+const std::string to_string(vk::PhysicalDeviceType type);
 
 /**
- * @brief Helper function to convert a VkSurfaceTransformFlagBitsKHR flag to a string
+ * @brief Helper function to convert a vk::SurfaceTransformFlagBitsKHR flag to a string
  * @param transform_flag Vulkan surface transform flag bit to convert.
  * @return The string to return.
  */
-const std::string to_string(VkSurfaceTransformFlagBitsKHR transform_flag);
+const std::string to_string(vk::SurfaceTransformFlagBitsKHR transform_flag);
 
 /**
- * @brief Helper function to convert a VkSurfaceFormatKHR format to a string
+ * @brief Helper function to convert a vk::SurfaceFormatKHR format to a string
  * @param surface_format Vulkan surface format to convert.
  * @return The string to return.
  */
-const std::string to_string(VkSurfaceFormatKHR surface_format);
+const std::string to_string(const vk::SurfaceFormatKHR &surface_format);
 
 /**
- * @brief Helper function to convert a VkCompositeAlphaFlagBitsKHR flag to a string
+ * @brief Helper function to convert a vk::CompositeAlphaFlagBitsKHR flag to a string
  * @param composite_alpha Vulkan composite alpha flag bit to convert.
  * @return The string to return.
  */
-const std::string to_string(VkCompositeAlphaFlagBitsKHR composite_alpha);
+const std::string to_string(vk::CompositeAlphaFlagBitsKHR composite_alpha);
 
 /**
- * @brief Helper function to convert a VkImageUsageFlagBits flag to a string
+ * @brief Helper function to convert a vk::ImageUsageFlagBits flag to a string
  * @param image_usage Vulkan image usage flag bit to convert.
  * @return The string to return.
  */
-const std::string to_string(VkImageUsageFlagBits image_usage);
+const std::string to_string(vk::ImageUsageFlagBits image_usage);
 
 /**
- * @brief Helper function to convert a VkExtent2D flag to a string
+ * @brief Helper function to convert a vk::Extent2D flag to a string
  * @param extent Vulkan extent to convert.
  * @return The string to return.
  */
-const std::string to_string(VkExtent2D extent);
+const std::string to_string(const vk::Extent2D &extent);
 
 /**
- * @brief Helper function to create a VkShaderModule
+ * @brief Helper function to create a vk::ShaderModule
  * @param filename The shader location
  * @param device The logical device
  * @param stage The shader stage
  * @return The string to return.
  */
-VkShaderModule load_shader(const std::string &filename, VkDevice device, VkShaderStageFlagBits stage);
+vk::ShaderModule load_shader(const std::string &filename, vk::Device device, vk::ShaderStageFlagBits stage);
 
 /**
  * @brief Image memory barrier structure used to define
@@ -161,17 +166,17 @@ VkShaderModule load_shader(const std::string &filename, VkDevice device, VkShade
  */
 struct ImageMemoryBarrier
 {
-	VkPipelineStageFlags src_stage_mask{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT};
+	vk::PipelineStageFlags src_stage_mask{vk::PipelineStageFlagBits::eBottomOfPipe};
 
-	VkPipelineStageFlags dst_stage_mask{VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT};
+	vk::PipelineStageFlags dst_stage_mask{vk::PipelineStageFlagBits::eTopOfPipe};
 
-	VkAccessFlags src_access_mask{0};
+	vk::AccessFlags src_access_mask;
 
-	VkAccessFlags dst_access_mask{0};
+	vk::AccessFlags dst_access_mask;
 
-	VkImageLayout old_layout{VK_IMAGE_LAYOUT_UNDEFINED};
+	vk::ImageLayout old_layout{vk::ImageLayout::eUndefined};
 
-	VkImageLayout new_layout{VK_IMAGE_LAYOUT_UNDEFINED};
+	vk::ImageLayout new_layout{vk::ImageLayout::eUndefined};
 };
 
 /**
@@ -180,61 +185,61 @@ struct ImageMemoryBarrier
 */
 struct BufferMemoryBarrier
 {
-	VkPipelineStageFlags src_stage_mask{VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT};
+	vk::PipelineStageFlags src_stage_mask{vk::PipelineStageFlagBits::eBottomOfPipe};
 
-	VkPipelineStageFlags dst_stage_mask{VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT};
+	vk::PipelineStageFlags dst_stage_mask{vk::PipelineStageFlagBits::eTopOfPipe};
 
-	VkAccessFlags src_access_mask{0};
+	vk::AccessFlags src_access_mask{0};
 
-	VkAccessFlags dst_access_mask{0};
+	vk::AccessFlags dst_access_mask{0};
 };
 
 /**
 * @brief Put an image memory barrier for setting an image layout on the sub resource into the given command buffer
 */
 void set_image_layout(
-    VkCommandBuffer         command_buffer,
-    VkImage                 image,
-    VkImageLayout           old_layout,
-    VkImageLayout           new_layout,
-    VkImageSubresourceRange subresource_range,
-    VkPipelineStageFlags    src_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VkPipelineStageFlags    dst_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    vk::CommandBuffer                command_buffer,
+    vk::Image                        image,
+    vk::ImageLayout                  old_layout,
+    vk::ImageLayout                  new_layout,
+    const vk::ImageSubresourceRange &subresource_range,
+    const vk::PipelineStageFlags &   src_mask = vk::PipelineStageFlagBits::eAllCommands,
+    const vk::PipelineStageFlags &   dst_mask = vk::PipelineStageFlagBits::eAllCommands);
 
 /**
 * @brief Uses a fixed sub resource layout with first mip level and layer
 */
 void set_image_layout(
-    VkCommandBuffer      command_buffer,
-    VkImage              image,
-    VkImageAspectFlags   aspect_mask,
-    VkImageLayout        old_layout,
-    VkImageLayout        new_layout,
-    VkPipelineStageFlags src_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
-    VkPipelineStageFlags dst_mask = VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+    vk::CommandBuffer             command_buffer,
+    vk::Image                     image,
+    const vk::ImageAspectFlags &  aspect_mask,
+    vk::ImageLayout               old_layout,
+    vk::ImageLayout               new_layout,
+    const vk::PipelineStageFlags &src_mask = vk::PipelineStageFlagBits::eAllCommands,
+    const vk::PipelineStageFlags &dst_mask = vk::PipelineStageFlagBits::eAllCommands);
 
 /**
 * @brief Insert an image memory barrier into the command buffer
 */
 void insert_image_memory_barrier(
-    VkCommandBuffer         command_buffer,
-    VkImage                 image,
-    VkAccessFlags           src_access_mask,
-    VkAccessFlags           dst_access_mask,
-    VkImageLayout           old_layout,
-    VkImageLayout           new_layout,
-    VkPipelineStageFlags    src_stage_mask,
-    VkPipelineStageFlags    dst_stage_mask,
-    VkImageSubresourceRange subresource_range);
+    vk::CommandBuffer                command_buffer,
+    vk::Image                        image,
+    const vk::AccessFlags &          src_access_mask,
+    const vk::AccessFlags &          dst_access_mask,
+    vk::ImageLayout                  old_layout,
+    vk::ImageLayout                  new_layout,
+    const vk::PipelineStageFlags &   src_stage_mask,
+    const vk::PipelineStageFlags &   dst_stage_mask,
+    const vk::ImageSubresourceRange &subresource_range);
 
 /**
  * @brief Load and store info for a render pass attachment.
  */
 struct LoadStoreInfo
 {
-	VkAttachmentLoadOp load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	vk::AttachmentLoadOp load_op{vk::AttachmentLoadOp::eClear};
 
-	VkAttachmentStoreOp store_op = VK_ATTACHMENT_STORE_OP_STORE;
+	vk::AttachmentStoreOp store_op{vk::AttachmentStoreOp::eStore};
 };
 
 namespace gbuffer
@@ -257,7 +262,7 @@ std::vector<LoadStoreInfo> get_clear_store_all();
 /**
   * @return Default clear values for the G-buffer
   */
-std::vector<VkClearValue> get_clear_value();
+std::vector<vk::ClearValue> get_clear_value();
 }        // namespace gbuffer
 
 }        // namespace vkb

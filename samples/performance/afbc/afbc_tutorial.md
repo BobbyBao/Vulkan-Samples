@@ -41,7 +41,7 @@ This section will detail the requirements.
 `VkImage` requirements:
 
 * `VkSampleCountFlagBits` must be `VK_SAMPLE_COUNT_1_BIT`
-* `VkImageType` must be `VK_IMAGE_TYPE_2D`
+* `VkImageType` must be `vk::ImageType::e2D`
 * `VkImageTiling` must be `VK_IMAGE_TILING_OPTIMAL`
 * `VkFormat` [supported list](#format-support)
 

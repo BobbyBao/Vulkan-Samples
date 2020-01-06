@@ -50,8 +50,8 @@ void GeometrySubpass::prepare()
 		for (auto &sub_mesh : mesh->get_submeshes())
 		{
 			auto &variant     = sub_mesh->get_shader_variant();
-			auto &vert_module = device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_VERTEX_BIT, get_vertex_shader(), variant);
-			auto &frag_module = device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_FRAGMENT_BIT, get_fragment_shader(), variant);
+			auto &vert_module = device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eVertex, get_vertex_shader(), variant);
+			auto &frag_module = device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eFragment, get_fragment_shader(), variant);
 
 			vert_module.set_resource_dynamic("GlobalUniform");
 			frag_module.set_resource_dynamic("GlobalUniform");
@@ -104,9 +104,9 @@ void GeometrySubpass::draw(CommandBuffer &command_buffer)
 		update_uniform(command_buffer, *node_it->second.first);
 
 		// Invert the front face if the mesh was flipped
-		const auto &scale      = node_it->second.first->get_transform().get_scale();
-		bool        flipped    = scale.x * scale.y * scale.z < 0;
-		VkFrontFace front_face = flipped ? VK_FRONT_FACE_CLOCKWISE : VK_FRONT_FACE_COUNTER_CLOCKWISE;
+		const auto &  scale      = node_it->second.first->get_transform().get_scale();
+		bool          flipped    = scale.x * scale.y * scale.z < 0;
+		vk::FrontFace front_face = flipped ? vk::FrontFace::eClockwise : vk::FrontFace::eCounterClockwise;
 
 		draw_submesh(command_buffer, *node_it->second.second, front_face);
 	}
@@ -114,8 +114,8 @@ void GeometrySubpass::draw(CommandBuffer &command_buffer)
 	// Enable alpha blending
 	ColorBlendAttachmentState color_blend_attachment{};
 	color_blend_attachment.blend_enable           = VK_TRUE;
-	color_blend_attachment.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA;
-	color_blend_attachment.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_blend_attachment.src_color_blend_factor = vk::BlendFactor::eSrcAlpha;
+	color_blend_attachment.dst_color_blend_factor = vk::BlendFactor::eOneMinusSrcAlpha;
 
 	ColorBlendState color_blend_state{};
 	color_blend_state.attachments.resize(get_output_attachments().size());
@@ -143,7 +143,7 @@ void GeometrySubpass::update_uniform(CommandBuffer &command_buffer, sg::Node &no
 
 	auto &transform = node.get_transform();
 
-	auto allocation = render_frame.allocate_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, sizeof(GlobalUniform), thread_index);
+	auto allocation = render_frame.allocate_buffer(vk::BufferUsageFlagBits::eUniformBuffer, sizeof(GlobalUniform), thread_index);
 
 	global_uniform.model = transform.get_world_matrix();
 
@@ -154,7 +154,7 @@ void GeometrySubpass::update_uniform(CommandBuffer &command_buffer, sg::Node &no
 	command_buffer.bind_buffer(allocation.get_buffer(), allocation.get_offset(), allocation.get_size(), 0, 1, 0);
 }
 
-void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &sub_mesh, VkFrontFace front_face)
+void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &sub_mesh, vk::FrontFace front_face)
 {
 	auto &device = command_buffer.get_device();
 
@@ -163,13 +163,13 @@ void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &s
 
 	if (sub_mesh.get_material()->double_sided)
 	{
-		rasterization_state.cull_mode = VK_CULL_MODE_NONE;
+		rasterization_state.cull_mode = vk::CullModeFlagBits::eNone;
 	}
 
 	command_buffer.set_rasterization_state(rasterization_state);
 
-	auto &vert_shader_module = device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_VERTEX_BIT, get_vertex_shader(), sub_mesh.get_shader_variant());
-	auto &frag_shader_module = device.get_resource_cache().request_shader_module(VK_SHADER_STAGE_FRAGMENT_BIT, get_fragment_shader(), sub_mesh.get_shader_variant());
+	auto &vert_shader_module = device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eVertex, get_vertex_shader(), sub_mesh.get_shader_variant());
+	auto &frag_shader_module = device.get_resource_cache().request_shader_module(vk::ShaderStageFlagBits::eFragment, get_fragment_shader(), sub_mesh.get_shader_variant());
 
 	std::vector<ShaderModule *> shader_modules{&vert_shader_module, &frag_shader_module};
 
@@ -198,7 +198,7 @@ void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &s
 		}
 	}
 
-	auto vertex_input_resources = pipeline_layout.get_shader_program().get_resources(ShaderResourceType::Input, VK_SHADER_STAGE_VERTEX_BIT);
+	auto vertex_input_resources = pipeline_layout.get_shader_program().get_resources(ShaderResourceType::Input, vk::ShaderStageFlagBits::eVertex);
 
 	VertexInputState vertex_input_state;
 
@@ -211,7 +211,7 @@ void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &s
 			continue;
 		}
 
-		VkVertexInputAttributeDescription vertex_attribute{};
+		vk::VertexInputAttributeDescription vertex_attribute;
 		vertex_attribute.binding  = input_resource.location;
 		vertex_attribute.format   = attribute.format;
 		vertex_attribute.location = input_resource.location;
@@ -219,7 +219,7 @@ void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &s
 
 		vertex_input_state.attributes.push_back(vertex_attribute);
 
-		VkVertexInputBindingDescription vertex_binding{};
+		vk::VertexInputBindingDescription vertex_binding;
 		vertex_binding.binding = input_resource.location;
 		vertex_binding.stride  = attribute.stride;
 
@@ -235,11 +235,11 @@ void GeometrySubpass::draw_submesh(CommandBuffer &command_buffer, sg::SubMesh &s
 
 		if (buffer_iter != sub_mesh.vertex_buffers.end())
 		{
-			std::vector<std::reference_wrapper<const core::Buffer>> buffers;
-			buffers.emplace_back(std::ref(buffer_iter->second));
+			std::vector<vk::Buffer> buffers;
+			buffers.emplace_back(buffer_iter->second.get_handle());
 
 			// Bind vertex buffers only for the attribute locations defined
-			command_buffer.bind_vertex_buffers(input_resource.location, std::move(buffers), {0});
+			command_buffer.bind_vertex_buffers(input_resource.location, buffers, {0});
 		}
 	}
 

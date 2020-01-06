@@ -114,9 +114,9 @@ class RenderSubpasses : public vkb::VulkanSample
 	uint16_t last_transient_attachment{0};
 	uint16_t last_g_buffer_size{0};
 
-	VkFormat          albedo_format{VK_FORMAT_R8G8B8A8_UNORM};
-	VkFormat          normal_format{VK_FORMAT_A2B10G10R10_UNORM_PACK32};
-	VkImageUsageFlags rt_usage_flags{VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT};
+	vk::Format          albedo_format{vk::Format::eR8G8B8A8Unorm};
+	vk::Format          normal_format{vk::Format::eA2B10G10R10UnormPack32};
+	vk::ImageUsageFlags rt_usage_flags{vk::ImageUsageFlagBits::eInputAttachment | vk::ImageUsageFlagBits::eTransientAttachment};
 
 	std::vector<Config> configs = {
 	    {/* config      = */ Config::RenderTechnique,

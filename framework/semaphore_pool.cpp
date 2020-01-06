@@ -31,15 +31,15 @@ SemaphorePool::~SemaphorePool()
 	reset();
 
 	// Destroy all semaphores
-	for (VkSemaphore semaphore : semaphores)
+	for (vk::Semaphore semaphore : semaphores)
 	{
-		vkDestroySemaphore(device.get_handle(), semaphore, nullptr);
+		device.get_handle().destroy(semaphore);
 	}
 
 	semaphores.clear();
 }
 
-VkSemaphore SemaphorePool::request_semaphore()
+vk::Semaphore SemaphorePool::request_semaphore()
 {
 	// Check if there is an available semaphore
 	if (active_semaphore_count < semaphores.size())
@@ -47,16 +47,7 @@ VkSemaphore SemaphorePool::request_semaphore()
 		return semaphores.at(active_semaphore_count++);
 	}
 
-	VkSemaphore semaphore{VK_NULL_HANDLE};
-
-	VkSemaphoreCreateInfo create_info{VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
-
-	VkResult result = vkCreateSemaphore(device.get_handle(), &create_info, nullptr, &semaphore);
-
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create semaphore.");
-	}
+	vk::Semaphore semaphore = device.get_handle().createSemaphore({});
 
 	semaphores.push_back(semaphore);
 

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <numeric>
 
+#include "common/vk_initializers.h"
 #include "core/device.h"
 #include "core/pipeline_layout.h"
 #include "core/shader_module.h"
@@ -125,7 +126,7 @@ void CommandBufferUsage::update(float delta_time)
 
 	auto &primary_command_buffer = render_context.begin(subpass_state.command_buffer_reset_mode);
 
-	primary_command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	primary_command_buffer.begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
 	draw(primary_command_buffer, render_context.get_active_frame().get_render_target());
 
@@ -178,11 +179,11 @@ void CommandBufferUsage::render(vkb::CommandBuffer &primary_command_buffer)
 		{
 			// The user will set the number of secondary command buffers used for opaque meshes
 			// There will be additional buffers for transparent meshes and for the GUI
-			render_pipeline->draw(primary_command_buffer, get_render_context().get_active_frame().get_render_target(), VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+			render_pipeline->draw(primary_command_buffer, get_render_context().get_active_frame().get_render_target(), vk::SubpassContents::eSecondaryCommandBuffers);
 		}
 		else
 		{
-			render_pipeline->draw(primary_command_buffer, get_render_context().get_active_frame().get_render_target(), VK_SUBPASS_CONTENTS_INLINE);
+			render_pipeline->draw(primary_command_buffer, get_render_context().get_active_frame().get_render_target(), vk::SubpassContents::eInline);
 		}
 	}
 }
@@ -192,17 +193,12 @@ void CommandBufferUsage::draw_renderpass(vkb::CommandBuffer &primary_command_buf
 	const auto &subpass = static_cast<ForwardSubpassSecondary *>(render_pipeline->get_active_subpass().get());
 	auto &      extent  = render_target.get_extent();
 
-	VkViewport viewport{};
-	viewport.width    = static_cast<float>(extent.width);
-	viewport.height   = static_cast<float>(extent.height);
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	primary_command_buffer.set_viewport(0, {viewport});
+	vk::Viewport viewport = vkb::initializers::viewport(extent);
+	primary_command_buffer.setViewport(0, viewport);
 	subpass->set_viewport(viewport);
 
-	VkRect2D scissor{};
-	scissor.extent = extent;
-	primary_command_buffer.set_scissor(0, {scissor});
+	vk::Rect2D scissor = vkb::initializers::rect2D(extent);
+	primary_command_buffer.setScissor(0, scissor);
 	subpass->set_scissor(scissor);
 
 	render(primary_command_buffer);
@@ -212,15 +208,15 @@ void CommandBufferUsage::draw_renderpass(vkb::CommandBuffer &primary_command_buf
 	{
 		if (use_secondary_command_buffers)
 		{
-			const auto &queue = device->get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT, 0);
+			const auto &queue = device->get_queue_by_flags(vk::QueueFlagBits::eGraphics, 0);
 
-			auto &secondary_command_buffer = get_render_context().get_active_frame().request_command_buffer(queue, subpass->get_state().command_buffer_reset_mode, VK_COMMAND_BUFFER_LEVEL_SECONDARY);
+			auto &secondary_command_buffer = get_render_context().get_active_frame().request_command_buffer(queue, subpass->get_state().command_buffer_reset_mode, vk::CommandBufferLevel::eSecondary);
 
-			secondary_command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, &primary_command_buffer);
+			secondary_command_buffer.begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit | vk::CommandBufferUsageFlagBits::eRenderPassContinue, &primary_command_buffer);
 
-			secondary_command_buffer.set_viewport(0, {viewport});
+			secondary_command_buffer.set_viewport(0, viewport);
 
-			secondary_command_buffer.set_scissor(0, {scissor});
+			secondary_command_buffer.set_scissor(0, scissor);
 
 			gui->draw(secondary_command_buffer);
 
@@ -265,15 +261,15 @@ vkb::CommandBuffer *CommandBufferUsage::ForwardSubpassSecondary::record_draw_sec
                                                                                        const std::vector<std::pair<vkb::sg::Node *, vkb::sg::SubMesh *>> &nodes,
                                                                                        uint32_t mesh_start, uint32_t mesh_end, size_t thread_index)
 {
-	const auto &queue = render_context.get_device().get_queue_by_flags(VK_QUEUE_GRAPHICS_BIT, 0);
+	const auto &queue = render_context.get_device().get_queue_by_flags(vk::QueueFlagBits::eGraphics, 0);
 
-	auto &secondary_command_buffer = render_context.get_active_frame().request_command_buffer(queue, state.command_buffer_reset_mode, VK_COMMAND_BUFFER_LEVEL_SECONDARY, thread_index);
+	auto &secondary_command_buffer = render_context.get_active_frame().request_command_buffer(queue, state.command_buffer_reset_mode, vk::CommandBufferLevel::eSecondary, thread_index);
 
-	secondary_command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT, &primary_command_buffer);
+	secondary_command_buffer.begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit | vk::CommandBufferUsageFlagBits::eRenderPassContinue, &primary_command_buffer);
 
-	secondary_command_buffer.set_viewport(0, {viewport});
+	secondary_command_buffer.set_viewport(0, viewport);
 
-	secondary_command_buffer.set_scissor(0, {scissor});
+	secondary_command_buffer.set_scissor(0, scissor);
 
 	record_draw(secondary_command_buffer, nodes, mesh_start, mesh_end, thread_index);
 
@@ -374,9 +370,9 @@ void CommandBufferUsage::ForwardSubpassSecondary::draw(vkb::CommandBuffer &prima
 
 	// Enable alpha blending
 	color_blend_attachment.blend_enable           = VK_TRUE;
-	color_blend_attachment.src_color_blend_factor = VK_BLEND_FACTOR_SRC_ALPHA;
-	color_blend_attachment.dst_color_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
-	color_blend_attachment.src_alpha_blend_factor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+	color_blend_attachment.src_color_blend_factor = vk::BlendFactor::eSrcAlpha;
+	color_blend_attachment.dst_color_blend_factor = vk::BlendFactor::eOneMinusSrcAlpha;
+	color_blend_attachment.src_alpha_blend_factor = vk::BlendFactor::eOneMinusSrcAlpha;
 
 	color_blend_state.attachments[0] = color_blend_attachment;
 
@@ -399,12 +395,12 @@ void CommandBufferUsage::ForwardSubpassSecondary::draw(vkb::CommandBuffer &prima
 	}
 }
 
-void CommandBufferUsage::ForwardSubpassSecondary::set_viewport(VkViewport &viewport)
+void CommandBufferUsage::ForwardSubpassSecondary::set_viewport(vk::Viewport &viewport)
 {
 	this->viewport = viewport;
 }
 
-void CommandBufferUsage::ForwardSubpassSecondary::set_scissor(VkRect2D &scissor)
+void CommandBufferUsage::ForwardSubpassSecondary::set_scissor(vk::Rect2D &scissor)
 {
 	this->scissor = scissor;
 }

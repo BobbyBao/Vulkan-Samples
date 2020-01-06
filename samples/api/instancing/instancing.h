@@ -55,10 +55,10 @@ class Instancing : public ApiVulkanSample
 	// Contains the instanced data
 	struct InstanceBuffer
 	{
-		VkBuffer               buffer = VK_NULL_HANDLE;
-		VkDeviceMemory         memory = VK_NULL_HANDLE;
-		size_t                 size   = 0;
-		VkDescriptorBufferInfo descriptor;
+		vk::Buffer               buffer;
+		vk::DeviceMemory         memory;
+		size_t                   size{0};
+		vk::DescriptorBufferInfo descriptor;
 	} instance_buffer;
 
 	struct UBOVS
@@ -75,25 +75,25 @@ class Instancing : public ApiVulkanSample
 		std::unique_ptr<vkb::core::Buffer> scene;
 	} uniform_buffers;
 
-	VkPipelineLayout pipeline_layout;
+	vk::PipelineLayout pipeline_layout;
 	struct Pipelines
 	{
-		VkPipeline instanced_rocks;
-		VkPipeline planet;
-		VkPipeline starfield;
+		vk::Pipeline instanced_rocks;
+		vk::Pipeline planet;
+		vk::Pipeline starfield;
 	} pipelines;
 
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::DescriptorSetLayout descriptor_set_layout;
 	struct DescriptorSets
 	{
-		VkDescriptorSet instanced_rocks;
-		VkDescriptorSet planet;
+		vk::DescriptorSet instanced_rocks;
+		vk::DescriptorSet planet;
 	} descriptor_sets;
 
 	Instancing();
 	~Instancing();
 	virtual void get_device_features() override;
-	void         build_command_buffers() override;
+	virtual void update_draw_command_buffer(const vk::CommandBuffer &draw_cmd_buffer) override;
 	void         load_assets();
 	void         setup_descriptor_pool();
 	void         setup_descriptor_set_layout();

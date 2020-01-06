@@ -94,7 +94,7 @@ class Platform
 	virtual float get_dpi_factor() const;
 
 	/**
-	 * @return The VkInstance extension name for the platform
+	 * @return The vk::Instance extension name for the platform
 	 */
 	virtual const char *get_surface_extension() = 0;
 

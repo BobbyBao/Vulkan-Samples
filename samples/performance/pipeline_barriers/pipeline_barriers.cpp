@@ -121,21 +121,21 @@ vkb::RenderTarget PipelineBarriers::create_render_target(vkb::core::Image &&swap
 
 	vkb::core::Image depth_image{device,
 	                             extent,
-	                             VK_FORMAT_D32_SFLOAT,
-	                             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                             VMA_MEMORY_USAGE_GPU_ONLY};
+	                             vk::Format::eD32Sfloat,
+	                             vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                             vma::MemoryUsage::eGpuOnly};
 
 	vkb::core::Image albedo_image{device,
 	                              extent,
-	                              VK_FORMAT_R8G8B8A8_UNORM,
-	                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                              VMA_MEMORY_USAGE_GPU_ONLY};
+	                              vk::Format::eR8G8B8A8Unorm,
+	                              vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                              vma::MemoryUsage::eGpuOnly};
 
 	vkb::core::Image normal_image{device,
 	                              extent,
-	                              VK_FORMAT_A2B10G10R10_UNORM_PACK32,
-	                              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT,
-	                              VMA_MEMORY_USAGE_GPU_ONLY};
+	                              vk::Format::eA2B10G10R10UnormPack32,
+	                              vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eInputAttachment,
+	                              vma::MemoryUsage::eGpuOnly};
 
 	std::vector<vkb::core::Image> images;
 
@@ -170,27 +170,27 @@ void PipelineBarriers::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarge
 	{
 		// Image 0 is the swapchain
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_access_mask = 0;
+		memory_barrier.old_layout      = vk::ImageLayout::eUndefined;
+		memory_barrier.new_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+		memory_barrier.src_access_mask = {};
 
 		switch (dependency_type)
 		{
 			case DependencyType::BOTTOM_TO_TOP:
-				memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-				memory_barrier.dst_access_mask = 0;
+				memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+				memory_barrier.dst_access_mask = {};
 				break;
 			case DependencyType::FRAG_TO_VERT:
-				memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-				memory_barrier.dst_access_mask = VK_ACCESS_SHADER_READ_BIT;
+				memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eVertexShader;
+				memory_barrier.dst_access_mask = vk::AccessFlagBits::eShaderRead;
 				break;
 			case DependencyType::FRAG_TO_FRAG:
 			default:
-				memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				memory_barrier.dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+				memory_barrier.dst_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
 				break;
 		}
 
@@ -199,33 +199,33 @@ void PipelineBarriers::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarge
 		// Skip 1 as it is handled later as a depth-stencil attachment
 		for (size_t i = 2; i < views.size(); ++i)
 		{
-			memory_barrier.old_layout = VK_IMAGE_LAYOUT_UNDEFINED;
+			memory_barrier.old_layout = vk::ImageLayout::eUndefined;
 			command_buffer.image_memory_barrier(views.at(i), memory_barrier);
 		}
 	}
 
 	{
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		memory_barrier.src_access_mask = 0;
+		memory_barrier.old_layout      = vk::ImageLayout::eUndefined;
+		memory_barrier.new_layout      = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+		memory_barrier.src_access_mask = {};
 
 		switch (dependency_type)
 		{
 			case DependencyType::BOTTOM_TO_TOP:
-				memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-				memory_barrier.dst_access_mask = 0;
+				memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+				memory_barrier.dst_access_mask = {};
 				break;
 			case DependencyType::FRAG_TO_VERT:
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-				memory_barrier.dst_access_mask = VK_ACCESS_SHADER_READ_BIT;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eVertexShader;
+				memory_barrier.dst_access_mask = vk::AccessFlagBits::eShaderRead;
 				break;
 			case DependencyType::FRAG_TO_FRAG:
 			default:
-				memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-				memory_barrier.dst_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+				memory_barrier.dst_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 				break;
 		}
 
@@ -267,37 +267,37 @@ void PipelineBarriers::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarge
 
 		if (i == 1)
 		{
-			barrier.old_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			barrier.new_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+			barrier.old_layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+			barrier.new_layout = vk::ImageLayout::eDepthStencilReadOnlyOptimal;
 
-			barrier.src_stage_mask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-			barrier.src_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+			barrier.src_stage_mask  = vk::PipelineStageFlagBits::eEarlyFragmentTests | vk::PipelineStageFlagBits::eLateFragmentTests;
+			barrier.src_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentWrite;
 		}
 		else
 		{
-			barrier.old_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			barrier.new_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.old_layout = vk::ImageLayout::eColorAttachmentOptimal;
+			barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-			barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+			barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			barrier.src_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
 		}
 
 		switch (dependency_type)
 		{
 			case DependencyType::BOTTOM_TO_TOP:
-				barrier.src_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-				barrier.src_access_mask = 0;
-				barrier.dst_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-				barrier.dst_access_mask = 0;
+				barrier.src_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
+				barrier.src_access_mask = {};
+				barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+				barrier.dst_access_mask = {};
 				break;
 			case DependencyType::FRAG_TO_VERT:
-				barrier.dst_stage_mask  = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT;
-				barrier.dst_access_mask = VK_ACCESS_SHADER_READ_BIT;
+				barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eVertexShader;
+				barrier.dst_access_mask = vk::AccessFlagBits::eShaderRead;
 				break;
 			case DependencyType::FRAG_TO_FRAG:
 			default:
-				barrier.dst_stage_mask  = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				barrier.dst_access_mask = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
+				barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eFragmentShader;
+				barrier.dst_access_mask = vk::AccessFlagBits::eInputAttachmentRead;
 				break;
 		}
 
@@ -315,11 +315,11 @@ void PipelineBarriers::draw(vkb::CommandBuffer &command_buffer, vkb::RenderTarge
 
 	{
 		vkb::ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		memory_barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		memory_barrier.old_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+		memory_barrier.new_layout      = vk::ImageLayout::ePresentSrcKHR;
+		memory_barrier.src_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
 
 		command_buffer.image_memory_barrier(views.at(0), memory_barrier);
 	}

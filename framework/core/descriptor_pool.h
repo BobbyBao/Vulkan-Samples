@@ -28,7 +28,7 @@ class Device;
 class DescriptorSetLayout;
 
 /**
- * @brief Manages an array of fixed size VkDescriptorPool and is able to allocate descriptor sets
+ * @brief Manages an array of fixed size vk::DescriptorPool and is able to allocate descriptor sets
  */
 class DescriptorPool
 {
@@ -55,9 +55,9 @@ class DescriptorPool
 
 	void set_descriptor_set_layout(const DescriptorSetLayout &set_layout);
 
-	VkDescriptorSet allocate();
+	vk::DescriptorSet allocate();
 
-	VkResult free(VkDescriptorSet descriptor_set);
+	vk::Result free(vk::DescriptorSet descriptor_set);
 
   private:
 	Device &device;
@@ -65,13 +65,13 @@ class DescriptorPool
 	const DescriptorSetLayout *descriptor_set_layout{nullptr};
 
 	// Descriptor pool size
-	std::vector<VkDescriptorPoolSize> pool_sizes;
+	std::vector<vk::DescriptorPoolSize> pool_sizes;
 
 	// Number of sets to allocate for each pool
 	uint32_t pool_max_sets{0};
 
 	// Total descriptor pools created
-	std::vector<VkDescriptorPool> pools;
+	std::vector<vk::DescriptorPool> pools;
 
 	// Count sets for each pool
 	std::vector<uint32_t> pool_sets_count;

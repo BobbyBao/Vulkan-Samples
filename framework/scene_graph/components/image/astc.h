@@ -56,7 +56,7 @@ class Astc : public Image
 	 * @param extent Extent of the image
 	 * @param data Pointer to ASTC image data
 	 */
-	void decode(BlockDim blockdim, VkExtent3D extent, const uint8_t *data);
+	void decode(BlockDim blockdim, vk::Extent3D extent, const uint8_t *data);
 
 	/**
 	 * @brief Initializes ASTC library

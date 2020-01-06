@@ -19,24 +19,27 @@
 
 #include <algorithm>
 
+VULKAN_HPP_DEFAULT_DISPATCH_LOADER_DYNAMIC_STORAGE;
+
 namespace vkb
 {
 namespace
 {
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT /*type*/,
-                                                     uint64_t /*object*/, size_t /*location*/, int32_t /*message_code*/,
-                                                     const char *layer_prefix, const char *message, void * /*user_data*/)
+static VKAPI_ATTR vk::Bool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT rawflags, VkDebugReportObjectTypeEXT /*type*/,
+                                                       uint64_t /*object*/, size_t /*location*/, int32_t /*message_code*/,
+                                                       const char *layer_prefix, const char *message, void * /*user_data*/)
 {
-	if (flags & VK_DEBUG_REPORT_ERROR_BIT_EXT)
+	vk::DebugReportFlagsEXT flags{rawflags};
+	if (flags & vk::DebugReportFlagBitsEXT::eError)
 	{
 		LOGE("{}: {}", layer_prefix, message);
 	}
-	else if (flags & VK_DEBUG_REPORT_WARNING_BIT_EXT)
+	else if (flags & vk::DebugReportFlagBitsEXT::eWarning)
 	{
 		LOGW("{}: {}", layer_prefix, message);
 	}
-	else if (flags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT)
+	else if (flags & vk::DebugReportFlagBitsEXT::ePerformanceWarning)
 	{
 		LOGW("{}: {}", layer_prefix, message);
 	}
@@ -48,8 +51,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(VkDebugReportFlagsEXT flags
 }
 #endif
 
-bool validate_extensions(const std::vector<const char *> &         required,
-                         const std::vector<VkExtensionProperties> &available)
+bool validate_extensions(const std::vector<const char *> &           required,
+                         const std::vector<vk::ExtensionProperties> &available)
 {
 	for (auto extension : required)
 	{
@@ -73,8 +76,8 @@ bool validate_extensions(const std::vector<const char *> &         required,
 	return true;
 }
 
-bool validate_layers(const std::vector<const char *> &     required,
-                     const std::vector<VkLayerProperties> &available)
+bool validate_layers(const std::vector<const char *> &       required,
+                     const std::vector<vk::LayerProperties> &available)
 {
 	for (auto layer : required)
 	{
@@ -108,14 +111,11 @@ Instance::Instance(const std::string &              application_name,
 	VkResult result = volkInitialize();
 	if (result)
 	{
-		throw VulkanException(result, "Failed to initialize volk.");
+		vk::throwResultException(static_cast<vk::Result>(result), "Failed to initialize volk.");
 	}
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(vkGetInstanceProcAddr);
 
-	uint32_t instance_extension_count;
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, nullptr));
-
-	std::vector<VkExtensionProperties> available_instance_extensions(instance_extension_count);
-	VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &instance_extension_count, available_instance_extensions.data()));
+	auto available_instance_extensions = vk::enumerateInstanceExtensionProperties();
 
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
 	extensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
@@ -149,11 +149,7 @@ Instance::Instance(const std::string &              application_name,
 		throw std::runtime_error("Required instance extensions are missing.");
 	}
 
-	uint32_t instance_layer_count;
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&instance_layer_count, nullptr));
-
-	std::vector<VkLayerProperties> instance_layers(instance_layer_count);
-	VK_CHECK(vkEnumerateInstanceLayerProperties(&instance_layer_count, instance_layers.data()));
+	auto instance_layers = vk::enumerateInstanceLayerProperties();
 
 	std::vector<const char *> active_instance_layers(required_validation_layers);
 
@@ -199,22 +195,19 @@ Instance::Instance(const std::string &              application_name,
 		throw std::runtime_error("Required validation layers are missing.");
 	}
 
-	VkApplicationInfo app_info{VK_STRUCTURE_TYPE_APPLICATION_INFO};
-
+	vk::ApplicationInfo app_info;
 	app_info.pApplicationName   = application_name.c_str();
 	app_info.applicationVersion = 0;
 	app_info.pEngineName        = "Vulkan Samples";
 	app_info.engineVersion      = 0;
 	app_info.apiVersion         = VK_MAKE_VERSION(1, 0, 0);
 
-	VkInstanceCreateInfo instance_info = {VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO};
+	vk::InstanceCreateInfo instance_info;
 
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	VkDebugReportCallbackCreateInfoEXT debug_report_info = {VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT};
-
-	debug_report_info.flags       = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT;
-	debug_report_info.pfnCallback = debug_callback;
-
+	vk::DebugReportCallbackCreateInfoEXT debug_report_info;
+	debug_report_info.flags          = vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eWarning;
+	debug_report_info.pfnCallback    = (PFN_vkDebugReportCallbackEXT) debug_callback;
 	instance_info.pNext = &debug_report_info;
 #endif
 
@@ -227,29 +220,23 @@ Instance::Instance(const std::string &              application_name,
 	instance_info.ppEnabledLayerNames = active_instance_layers.data();
 
 	// Create the Vulkan instance
-	result = vkCreateInstance(&instance_info, nullptr, &handle);
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException(result, "Could not create Vulkan instance");
-	}
+	static_cast<vk::Instance &>(*this) = vk::createInstance(instance_info);
+	VULKAN_HPP_DEFAULT_DISPATCHER.init(*this);
 
-	volkLoadInstance(handle);
+	volkLoadInstance(get_handle());
 
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	result = vkCreateDebugReportCallbackEXT(handle, &debug_report_info, nullptr, &debug_report_callback);
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Could not create debug callback.");
-	}
+	debug_report_callback = createDebugReportCallbackEXT(debug_report_info);
 #endif
 
 	query_gpus();
 }
 
-Instance::Instance(VkInstance instance) :
-    handle{instance}
+Instance::Instance(vk::Instance instance)
 {
-	if (handle != VK_NULL_HANDLE)
+	auto &self = static_cast<vk::Instance &>(*this);
+	self       = instance;
+	if (self)
 	{
 		query_gpus();
 	}
@@ -262,42 +249,32 @@ Instance::Instance(VkInstance instance) :
 Instance::~Instance()
 {
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
-	if (debug_report_callback != VK_NULL_HANDLE)
+	if (debug_report_callback.operator bool())
 	{
-		vkDestroyDebugReportCallbackEXT(handle, debug_report_callback, nullptr);
+		destroyDebugReportCallbackEXT(debug_report_callback);
 	}
 #endif
 
-	if (handle != VK_NULL_HANDLE)
+	auto &self = static_cast<vk::Instance &>(*this);
+	if (self)
 	{
-		vkDestroyInstance(handle, nullptr);
+		destroy();
 	}
 }
 
 void Instance::query_gpus()
 {
 	// Querying valid physical devices on the machine
-	uint32_t physical_device_count{0};
-	VK_CHECK(vkEnumeratePhysicalDevices(handle, &physical_device_count, nullptr));
-
-	if (physical_device_count < 1)
-	{
-		throw std::runtime_error("Couldn't find a physical device that supports Vulkan.");
-	}
-
-	gpus.resize(physical_device_count);
-
-	VK_CHECK(vkEnumeratePhysicalDevices(handle, &physical_device_count, gpus.data()));
+	gpus = enumeratePhysicalDevices();
 }
 
-VkPhysicalDevice Instance::get_gpu()
+vk::PhysicalDevice Instance::get_gpu()
 {
 	// Find a discrete GPU
 	for (auto gpu : gpus)
 	{
-		VkPhysicalDeviceProperties properties{};
-		vkGetPhysicalDeviceProperties(gpu, &properties);
-		if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+		vk::PhysicalDeviceProperties properties = gpu.getProperties();
+		if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
 		{
 			return gpu;
 		}
@@ -313,9 +290,9 @@ bool Instance::is_enabled(const char *extension)
 	return std::find(extensions.begin(), extensions.end(), extension) != extensions.end();
 }
 
-VkInstance Instance::get_handle()
+vk::Instance Instance::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Instance &>(*this);
 }
 
 const std::vector<const char *> &Instance::get_extensions()

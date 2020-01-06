@@ -82,37 +82,37 @@ class TerrainTessellation : public ApiVulkanSample
 
 	struct Pipelines
 	{
-		VkPipeline terrain;
-		VkPipeline wireframe = VK_NULL_HANDLE;
-		VkPipeline skysphere;
+		vk::Pipeline terrain;
+		vk::Pipeline wireframe;
+		vk::Pipeline skysphere;
 	} pipelines;
 
 	struct
 	{
-		VkDescriptorSetLayout terrain;
-		VkDescriptorSetLayout skysphere;
+		vk::DescriptorSetLayout terrain;
+		vk::DescriptorSetLayout skysphere;
 	} descriptor_set_layouts;
 
 	struct
 	{
-		VkPipelineLayout terrain;
-		VkPipelineLayout skysphere;
+		vk::PipelineLayout terrain;
+		vk::PipelineLayout skysphere;
 	} pipeline_layouts;
 
 	struct
 	{
-		VkDescriptorSet terrain;
-		VkDescriptorSet skysphere;
+		vk::DescriptorSet terrain;
+		vk::DescriptorSet skysphere;
 	} descriptor_sets;
 
 	// Pipeline statistics
 	struct
 	{
-		VkBuffer       buffer;
-		VkDeviceMemory memory;
+		vk::Buffer       buffer;
+		vk::DeviceMemory memory;
 	} query_result;
-	VkQueryPool query_pool        = VK_NULL_HANDLE;
-	uint64_t    pipeline_stats[2] = {0};
+	vk::QueryPool query_pool;
+	uint64_t      pipeline_stats[2] = {0};
 
 	// View frustum passed to tessellation control shader for culling
 	vkb::Frustum frustum;

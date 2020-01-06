@@ -55,7 +55,7 @@ class SurfaceRotation : public vkb::VulkanSample
 	*        the swapchain, which depends on whether or not the
 	*        application is implementing pre-rotation
 	*/
-	VkSurfaceTransformFlagBitsKHR select_pre_transform();
+	vk::SurfaceTransformFlagBitsKHR select_pre_transform();
 
 	/* @brief 180 degree rotations do not trigger a resize, but
 	 *        if pre_rotation is enabled a new swapchain

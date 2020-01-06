@@ -24,9 +24,9 @@ namespace vkb
 {
 namespace
 {
-inline VkImageType find_image_type(VkExtent3D extent)
+inline vk::ImageType find_image_type(vk::Extent3D extent)
 {
-	VkImageType result{};
+	vk::ImageType result;
 
 	uint32_t dim_num{0};
 
@@ -48,13 +48,13 @@ inline VkImageType find_image_type(VkExtent3D extent)
 	switch (dim_num)
 	{
 		case 1:
-			result = VK_IMAGE_TYPE_1D;
+			result = vk::ImageType::e1D;
 			break;
 		case 2:
-			result = VK_IMAGE_TYPE_2D;
+			result = vk::ImageType::e2D;
 			break;
 		case 3:
-			result = VK_IMAGE_TYPE_3D;
+			result = vk::ImageType::e3D;
 			break;
 		default:
 			throw std::runtime_error("No image type found.");
@@ -67,16 +67,16 @@ inline VkImageType find_image_type(VkExtent3D extent)
 
 namespace core
 {
-Image::Image(Device &              device,
-             const VkExtent3D &    extent,
-             VkFormat              format,
-             VkImageUsageFlags     image_usage,
-             VmaMemoryUsage        memory_usage,
-             VkSampleCountFlagBits sample_count,
-             const uint32_t        mip_levels,
-             const uint32_t        array_layers,
-             VkImageTiling         tiling,
-             VkImageCreateFlags    flags) :
+Image::Image(Device &                device,
+             const vk::Extent3D &    extent,
+             vk::Format              format,
+             vk::ImageUsageFlags     image_usage,
+             vma::MemoryUsage        memory_usage,
+             vk::SampleCountFlagBits sample_count,
+             const uint32_t          mip_levels,
+             const uint32_t          array_layers,
+             vk::ImageTiling         tiling,
+             vk::ImageCreateFlags    flags) :
     device{device},
     type{find_image_type(extent)},
     extent{extent},
@@ -91,8 +91,20 @@ Image::Image(Device &              device,
 
 	subresource.mipLevel   = mip_levels;
 	subresource.arrayLayer = array_layers;
+	if (vkb::is_depth_only_format(format))
+	{
+		subresource.aspectMask = vk::ImageAspectFlagBits::eDepth;
+	}
+	else if (vkb::is_depth_stencil_format(format))
+	{
+		subresource.aspectMask = vk::ImageAspectFlagBits::eDepth | vk::ImageAspectFlagBits::eStencil;
+	}
+	else
+	{
+		subresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+	}
 
-	VkImageCreateInfo image_info{VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
+	vk::ImageCreateInfo image_info;
 	image_info.flags       = flags;
 	image_info.imageType   = type;
 	image_info.format      = format;
@@ -103,32 +115,28 @@ Image::Image(Device &              device,
 	image_info.tiling      = tiling;
 	image_info.usage       = image_usage;
 
-	VmaAllocationCreateInfo memory_info{};
+	vma::Allocation::CreateInfo memory_info;
 	memory_info.usage = memory_usage;
 
-	if (image_usage & VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT)
+	if (image_usage & vk::ImageUsageFlagBits::eTransientAttachment)
 	{
-		memory_info.preferredFlags = VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
+		memory_info.preferredFlags = vk::MemoryPropertyFlagBits::eLazilyAllocated;
 	}
 
-	auto result = vmaCreateImage(device.get_memory_allocator(),
-	                             &image_info, &memory_info,
-	                             &handle, &memory,
-	                             nullptr);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create Image"};
-	}
+	device.get_memory_allocator().createImage(
+	    image_info,
+	    memory_info,
+	    *this,
+	    memory);
 }
 
-Image::Image(Device &device, VkImage handle, const VkExtent3D &extent, VkFormat format, VkImageUsageFlags image_usage) :
+Image::Image(Device &device, vk::Image handle, const vk::Extent3D &extent, vk::Format format, vk::ImageUsageFlags image_usage) :
+    vk::Image{handle},
     device{device},
-    handle{handle},
     type{find_image_type(extent)},
     extent{extent},
     format{format},
-    sample_count{VK_SAMPLE_COUNT_1_BIT},
+    sample_count{vk::SampleCountFlagBits::e1},
     usage{image_usage}
 {
 	subresource.mipLevel   = 1;
@@ -136,8 +144,8 @@ Image::Image(Device &device, VkImage handle, const VkExtent3D &extent, VkFormat 
 }
 
 Image::Image(Image &&other) :
+    vk::Image{other},
     device{other.device},
-    handle{other.handle},
     memory{other.memory},
     type{other.type},
     extent{other.extent},
@@ -149,10 +157,10 @@ Image::Image(Image &&other) :
     mapped_data{other.mapped_data},
     mapped{other.mapped}
 {
-	other.handle      = VK_NULL_HANDLE;
-	other.memory      = VK_NULL_HANDLE;
-	other.mapped_data = nullptr;
-	other.mapped      = false;
+	static_cast<vk::Image &>(other) = nullptr;
+	other.memory                    = VK_NULL_HANDLE;
+	other.mapped_data               = nullptr;
+	other.mapped                    = false;
 
 	// Update image views references to this image to avoid dangling pointers
 	for (auto &view : views)
@@ -163,10 +171,10 @@ Image::Image(Image &&other) :
 
 Image::~Image()
 {
-	if (handle != VK_NULL_HANDLE && memory != VK_NULL_HANDLE)
+	if (operator bool() && memory)
 	{
 		unmap();
-		vmaDestroyImage(device.get_memory_allocator(), handle, memory);
+		device.get_memory_allocator().destroyImage(*this, memory);
 	}
 }
 
@@ -175,9 +183,9 @@ Device &Image::get_device()
 	return device;
 }
 
-VkImage Image::get_handle() const
+vk::Image Image::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Image &>(*this);
 }
 
 VmaAllocation Image::get_memory() const
@@ -189,12 +197,12 @@ uint8_t *Image::map()
 {
 	if (!mapped_data)
 	{
-		if (tiling != VK_IMAGE_TILING_LINEAR)
+		if (tiling != vk::ImageTiling::eLinear)
 		{
 			LOGW("Mapping image memory that is not linear");
 		}
-		VK_CHECK(vmaMapMemory(device.get_memory_allocator(), memory, reinterpret_cast<void **>(&mapped_data)));
-		mapped = true;
+		mapped_data = (uint8_t *) memory.mapMemory();
+		mapped      = true;
 	}
 	return mapped_data;
 }
@@ -203,43 +211,43 @@ void Image::unmap()
 {
 	if (mapped)
 	{
-		vmaUnmapMemory(device.get_memory_allocator(), memory);
+		memory.unmapMemory();
 		mapped_data = nullptr;
 		mapped      = false;
 	}
 }
 
-VkImageType Image::get_type() const
+vk::ImageType Image::get_type() const
 {
 	return type;
 }
 
-const VkExtent3D &Image::get_extent() const
+const vk::Extent3D &Image::get_extent() const
 {
 	return extent;
 }
 
-VkFormat Image::get_format() const
+vk::Format Image::get_format() const
 {
 	return format;
 }
 
-VkSampleCountFlagBits Image::get_sample_count() const
+vk::SampleCountFlagBits Image::get_sample_count() const
 {
 	return sample_count;
 }
 
-VkImageUsageFlags Image::get_usage() const
+vk::ImageUsageFlags Image::get_usage() const
 {
 	return usage;
 }
 
-VkImageTiling Image::get_tiling() const
+vk::ImageTiling Image::get_tiling() const
 {
 	return tiling;
 }
 
-VkImageSubresource Image::get_subresource() const
+const vk::ImageSubresource &Image::get_subresource() const
 {
 	return subresource;
 }

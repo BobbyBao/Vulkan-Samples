@@ -27,14 +27,14 @@
 
 #include "api_vulkan_sample.h"
 
-#define FB_COLOR_FORMAT VK_FORMAT_R8G8B8A8_UNORM
+#define FB_COLOR_FORMAT vk::Format::eR8G8B8A8Unorm
 #define ZOOM_FACTOR 16
 
 class ConservativeRasterization : public ApiVulkanSample
 {
   public:
 	// Fetch and store conservative rasterization state props for display purposes
-	VkPhysicalDeviceConservativeRasterizationPropertiesEXT conservative_raster_properties{};
+	vk::PhysicalDeviceConservativeRasterizationPropertiesEXT conservative_raster_properties;
 
 	bool conservative_raster_enabled = true;
 
@@ -66,45 +66,45 @@ class ConservativeRasterization : public ApiVulkanSample
 
 	struct PipelineLayouts
 	{
-		VkPipelineLayout scene;
-		VkPipelineLayout fullscreen;
+		vk::PipelineLayout scene;
+		vk::PipelineLayout fullscreen;
 	} pipeline_layouts;
 
 	struct Pipelines
 	{
-		VkPipeline triangle;
-		VkPipeline triangle_conservative_raster;
-		VkPipeline triangle_overlay;
-		VkPipeline fullscreen;
+		vk::Pipeline triangle;
+		vk::Pipeline triangle_conservative_raster;
+		vk::Pipeline triangle_overlay;
+		vk::Pipeline fullscreen;
 	} pipelines;
 
 	struct DescriptorSetLayouts
 	{
-		VkDescriptorSetLayout scene;
-		VkDescriptorSetLayout fullscreen;
+		vk::DescriptorSetLayout scene;
+		vk::DescriptorSetLayout fullscreen;
 	} descriptor_set_layouts;
 
 	struct DescriptorSets
 	{
-		VkDescriptorSet scene;
-		VkDescriptorSet fullscreen;
+		vk::DescriptorSet scene;
+		vk::DescriptorSet fullscreen;
 	} descriptor_sets;
 
 	// Framebuffer for offscreen rendering
 	struct FrameBufferAttachment
 	{
-		VkImage        image;
-		VkDeviceMemory mem;
-		VkImageView    view;
+		vk::Image        image;
+		vk::DeviceMemory mem;
+		vk::ImageView    view;
 	};
 	struct OffscreenPass
 	{
-		int32_t               width, height;
-		VkFramebuffer         framebuffer;
-		FrameBufferAttachment color, depth;
-		VkRenderPass          render_pass;
-		VkSampler             sampler;
-		VkDescriptorImageInfo descriptor;
+		int32_t                 width, height;
+		vk::Framebuffer         framebuffer;
+		FrameBufferAttachment   color, depth;
+		vk::RenderPass          render_pass;
+		vk::Sampler             sampler;
+		vk::DescriptorImageInfo descriptor;
 	} offscreen_pass;
 
 	ConservativeRasterization();

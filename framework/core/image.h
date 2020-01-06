@@ -29,25 +29,25 @@ class Device;
 namespace core
 {
 class ImageView;
-class Image
+class Image : public vk::Image
 {
   public:
-	Image(Device &          device,
-	      VkImage           handle,
-	      const VkExtent3D &extent,
-	      VkFormat          format,
-	      VkImageUsageFlags image_usage);
+	Image(Device &            device,
+	      vk::Image           handle,
+	      const vk::Extent3D &extent,
+	      vk::Format          format,
+	      vk::ImageUsageFlags image_usage);
 
-	Image(Device &              device,
-	      const VkExtent3D &    extent,
-	      VkFormat              format,
-	      VkImageUsageFlags     image_usage,
-	      VmaMemoryUsage        memory_usage,
-	      VkSampleCountFlagBits sample_count = VK_SAMPLE_COUNT_1_BIT,
-	      uint32_t              mip_levels   = 1,
-	      uint32_t              array_layers = 1,
-	      VkImageTiling         tiling       = VK_IMAGE_TILING_OPTIMAL,
-	      VkImageCreateFlags    flags        = 0);
+	Image(Device &                device,
+	      const vk::Extent3D &    extent,
+	      vk::Format              format,
+	      vk::ImageUsageFlags     image_usage,
+	      vma::MemoryUsage        memory_usage,
+	      vk::SampleCountFlagBits sample_count = vk::SampleCountFlagBits::e1,
+	      uint32_t                mip_levels   = 1,
+	      uint32_t                array_layers = 1,
+	      vk::ImageTiling         tiling       = vk::ImageTiling::eOptimal,
+	      vk::ImageCreateFlags    flags        = {});
 
 	Image(const Image &) = delete;
 
@@ -61,7 +61,7 @@ class Image
 
 	Device &get_device();
 
-	VkImage get_handle() const;
+	vk::Image get_handle() const;
 
 	VmaAllocation get_memory() const;
 
@@ -76,19 +76,19 @@ class Image
 	 */
 	void unmap();
 
-	VkImageType get_type() const;
+	vk::ImageType get_type() const;
 
-	const VkExtent3D &get_extent() const;
+	const vk::Extent3D &get_extent() const;
 
-	VkFormat get_format() const;
+	vk::Format get_format() const;
 
-	VkSampleCountFlagBits get_sample_count() const;
+	vk::SampleCountFlagBits get_sample_count() const;
 
-	VkImageUsageFlags get_usage() const;
+	vk::ImageUsageFlags get_usage() const;
 
-	VkImageTiling get_tiling() const;
+	vk::ImageTiling get_tiling() const;
 
-	VkImageSubresource get_subresource() const;
+	const vk::ImageSubresource& get_subresource() const;
 
 	uint32_t get_array_layer_count() const;
 
@@ -97,23 +97,21 @@ class Image
   private:
 	Device &device;
 
-	VkImage handle{VK_NULL_HANDLE};
+	vma::Allocation memory;
 
-	VmaAllocation memory{VK_NULL_HANDLE};
+	vk::ImageType type;
 
-	VkImageType type{};
+	vk::Extent3D extent;
 
-	VkExtent3D extent{};
+	vk::Format format;
 
-	VkFormat format{};
+	vk::ImageUsageFlags usage;
 
-	VkImageUsageFlags usage{};
+	vk::SampleCountFlagBits sample_count;
 
-	VkSampleCountFlagBits sample_count{};
+	vk::ImageTiling tiling;
 
-	VkImageTiling tiling{};
-
-	VkImageSubresource subresource{};
+	vk::ImageSubresource subresource;
 
 	uint32_t array_layer_count{0};
 
@@ -122,7 +120,7 @@ class Image
 
 	uint8_t *mapped_data{nullptr};
 
-	/// Whether it was mapped with vmaMapMemory
+	/// Whether it was mapped
 	bool mapped{false};
 };
 }        // namespace core

@@ -32,15 +32,15 @@ class Device;
  */
 struct Attachment
 {
-	VkFormat format{VK_FORMAT_UNDEFINED};
+	vk::Format format{vk::Format::eUndefined};
 
-	VkSampleCountFlagBits samples{VK_SAMPLE_COUNT_1_BIT};
+	vk::SampleCountFlagBits samples{vk::SampleCountFlagBits::e1};
 
-	VkImageUsageFlags usage{VK_IMAGE_USAGE_SAMPLED_BIT};
+	vk::ImageUsageFlags usage{vk::ImageUsageFlagBits::eSampled};
 
 	Attachment() = default;
 
-	Attachment(VkFormat format, VkSampleCountFlagBits samples, VkImageUsageFlags usage);
+	Attachment(vk::Format format, vk::SampleCountFlagBits samples, vk::ImageUsageFlags usage);
 };
 
 /**
@@ -69,7 +69,7 @@ class RenderTarget
 
 	RenderTarget &operator=(RenderTarget &&other) noexcept;
 
-	const VkExtent2D &get_extent() const;
+	const vk::Extent2D &get_extent() const;
 
 	const std::vector<core::ImageView> &get_views() const;
 
@@ -96,7 +96,7 @@ class RenderTarget
   private:
 	Device &device;
 
-	VkExtent2D extent{};
+	vk::Extent2D extent;
 
 	std::vector<core::Image> images;
 

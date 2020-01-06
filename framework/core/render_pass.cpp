@@ -24,9 +24,9 @@
 
 namespace vkb
 {
-VkRenderPass RenderPass::get_handle() const
+vk::RenderPass RenderPass::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::RenderPass &>(*this);
 }
 
 RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachments, const std::vector<LoadStoreInfo> &load_store_infos, const std::vector<SubpassInfo> &subpasses) :
@@ -38,15 +38,15 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 {
 	uint32_t depth_stencil_attachment{VK_ATTACHMENT_UNUSED};
 
-	std::vector<VkAttachmentDescription> attachment_descriptions;
+	std::vector<vk::AttachmentDescription> attachment_descriptions;
 
 	for (uint32_t i = 0U; i < attachments.size(); ++i)
 	{
-		VkAttachmentDescription attachment{};
+		vk::AttachmentDescription attachment;
 
 		attachment.format      = attachments[i].format;
 		attachment.samples     = attachments[i].samples;
-		attachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		attachment.finalLayout = vk::ImageLayout::eColorAttachmentOptimal;
 
 		if (i < load_store_infos.size())
 		{
@@ -59,13 +59,13 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		if (is_depth_stencil_format(attachment.format))
 		{
 			depth_stencil_attachment = i;
-			attachment.finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			attachment.finalLayout   = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 		}
 
 		attachment_descriptions.push_back(std::move(attachment));
 	}
 
-	std::vector<VkSubpassDescription> subpass_descriptions;
+	std::vector<vk::SubpassDescription> subpass_descriptions;
 	subpass_descriptions.reserve(subpass_count);
 
 	for (size_t i = 0; i < subpasses.size(); ++i)
@@ -77,7 +77,7 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		{
 			if (o_attachment != depth_stencil_attachment)
 			{
-				color_attachments[i].push_back({o_attachment, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+				color_attachments[i].push_back({o_attachment, vk::ImageLayout::eColorAttachmentOptimal});
 			}
 		}
 
@@ -86,17 +86,17 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		{
 			if (is_depth_stencil_format(attachment_descriptions[i_attachment].format))
 			{
-				input_attachments[i].push_back({i_attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL});
+				input_attachments[i].push_back({i_attachment, vk::ImageLayout::eDepthStencilReadOnlyOptimal});
 			}
 			else
 			{
-				input_attachments[i].push_back({i_attachment, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL});
+				input_attachments[i].push_back({i_attachment, vk::ImageLayout::eShaderReadOnlyOptimal});
 			}
 		}
 
 		if (depth_stencil_attachment != VK_ATTACHMENT_UNUSED)
 		{
-			depth_stencil_attachments[i].push_back({depth_stencil_attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL});
+			depth_stencil_attachments[i].push_back({depth_stencil_attachment, vk::ImageLayout::eDepthStencilAttachmentOptimal});
 		}
 	}
 
@@ -104,8 +104,8 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 	{
 		auto &subpass = subpasses[i];
 
-		VkSubpassDescription subpass_description{};
-		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		vk::SubpassDescription subpass_description;
+		subpass_description.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 
 		subpass_description.pInputAttachments    = input_attachments[i].empty() ? nullptr : input_attachments[i].data();
 		subpass_description.inputAttachmentCount = to_u32(input_attachments[i].size());
@@ -121,8 +121,8 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 	// Default subpass
 	if (subpasses.empty())
 	{
-		VkSubpassDescription subpass_description{};
-		subpass_description.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		vk::SubpassDescription subpass_description;
+		subpass_description.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 
 		for (uint32_t k = 0U; k < attachment_descriptions.size(); ++k)
 		{
@@ -131,14 +131,14 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 				continue;
 			}
 
-			color_attachments[0].push_back({k, VK_IMAGE_LAYOUT_GENERAL});
+			color_attachments[0].push_back({k, vk::ImageLayout::eGeneral});
 		}
 
 		subpass_description.pColorAttachments = color_attachments[0].data();
 
 		if (depth_stencil_attachment != VK_ATTACHMENT_UNUSED)
 		{
-			depth_stencil_attachments[0].push_back({depth_stencil_attachment, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL});
+			depth_stencil_attachments[0].push_back({depth_stencil_attachment, vk::ImageLayout::eDepthStencilAttachmentOptimal});
 
 			subpass_description.pDepthStencilAttachment = depth_stencil_attachments[0].data();
 		}
@@ -153,7 +153,7 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		{
 			auto reference = subpass.pColorAttachments[k];
 			// Set it only if not defined yet
-			if (attachment_descriptions[reference.attachment].initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+			if (attachment_descriptions[reference.attachment].initialLayout == vk::ImageLayout::eUndefined)
 			{
 				attachment_descriptions[reference.attachment].initialLayout = reference.layout;
 			}
@@ -163,7 +163,7 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		{
 			auto reference = subpass.pInputAttachments[k];
 			// Set it only if not defined yet
-			if (attachment_descriptions[reference.attachment].initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+			if (attachment_descriptions[reference.attachment].initialLayout == vk::ImageLayout::eUndefined)
 			{
 				attachment_descriptions[reference.attachment].initialLayout = reference.layout;
 			}
@@ -173,7 +173,7 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 		{
 			auto reference = *subpass.pDepthStencilAttachment;
 			// Set it only if not defined yet
-			if (attachment_descriptions[reference.attachment].initialLayout == VK_IMAGE_LAYOUT_UNDEFINED)
+			if (attachment_descriptions[reference.attachment].initialLayout == vk::ImageLayout::eUndefined)
 			{
 				attachment_descriptions[reference.attachment].initialLayout = reference.layout;
 			}
@@ -213,7 +213,7 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 	}
 
 	// Set subpass dependencies
-	std::vector<VkSubpassDependency> dependencies(subpass_count - 1);
+	std::vector<vk::SubpassDependency> dependencies(subpass_count - 1);
 
 	if (subpass_count > 1)
 	{
@@ -222,16 +222,16 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 			// Transition input attachments from color attachment to shader read
 			dependencies[i].srcSubpass      = i;
 			dependencies[i].dstSubpass      = i + 1;
-			dependencies[i].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-			dependencies[i].dstStageMask    = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-			dependencies[i].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-			dependencies[i].dstAccessMask   = VK_ACCESS_INPUT_ATTACHMENT_READ_BIT;
-			dependencies[i].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+			dependencies[i].srcStageMask    = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+			dependencies[i].dstStageMask    = vk::PipelineStageFlagBits::eFragmentShader;
+			dependencies[i].srcAccessMask   = vk::AccessFlagBits::eColorAttachmentWrite;
+			dependencies[i].dstAccessMask   = vk::AccessFlagBits::eInputAttachmentRead;
+			dependencies[i].dependencyFlags = vk::DependencyFlagBits::eByRegion;
 		}
 	}
 
 	// Create render pass
-	VkRenderPassCreateInfo create_info{VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+	vk::RenderPassCreateInfo create_info;
 
 	create_info.attachmentCount = to_u32(attachment_descriptions.size());
 	create_info.pAttachments    = attachment_descriptions.data();
@@ -240,31 +240,26 @@ RenderPass::RenderPass(Device &device, const std::vector<Attachment> &attachment
 	create_info.dependencyCount = to_u32(dependencies.size());
 	create_info.pDependencies   = dependencies.data();
 
-	auto result = vkCreateRenderPass(device.get_handle(), &create_info, nullptr, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create RenderPass"};
-	}
+	static_cast<vk::RenderPass &>(*this) = device.get_handle().createRenderPass(create_info);
 }        // namespace vkb
 
 RenderPass::RenderPass(RenderPass &&other) :
+    vk::RenderPass{other},
     device{other.device},
-    handle{other.handle},
     subpass_count{other.subpass_count},
     input_attachments{other.input_attachments},
     color_attachments{other.color_attachments},
     depth_stencil_attachments{other.depth_stencil_attachments}
 {
-	other.handle = VK_NULL_HANDLE;
+	static_cast<vk::RenderPass &&>(other) = nullptr;
 }
 
 RenderPass::~RenderPass()
 {
 	// Destroy render pass
-	if (handle != VK_NULL_HANDLE)
+	if (operator bool())
 	{
-		vkDestroyRenderPass(device.get_handle(), handle, nullptr);
+		device.get_handle().destroy(*this);
 	}
 }
 
@@ -273,11 +268,8 @@ const uint32_t RenderPass::get_color_output_count(uint32_t subpass_index) const
 	return to_u32(color_attachments[subpass_index].size());
 }
 
-const VkExtent2D RenderPass::get_render_area_granularity() const
+const vk::Extent2D RenderPass::get_render_area_granularity() const
 {
-	VkExtent2D render_area_granularity = {};
-	vkGetRenderAreaGranularity(device.get_handle(), get_handle(), &render_area_granularity);
-
-	return render_area_granularity;
+    return device.get_handle().getRenderAreaGranularity(*this);
 }
 }        // namespace vkb

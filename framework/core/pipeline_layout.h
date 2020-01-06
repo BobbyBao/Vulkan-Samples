@@ -29,7 +29,7 @@ class Device;
 class ShaderModule;
 class DescriptorSetLayout;
 
-class PipelineLayout
+class PipelineLayout : protected vk::PipelineLayout
 {
   public:
 	PipelineLayout(Device &device, const std::vector<ShaderModule *> &shader_modules, bool use_dynamic_resources);
@@ -44,7 +44,7 @@ class PipelineLayout
 
 	PipelineLayout &operator=(PipelineLayout &&) = delete;
 
-	VkPipelineLayout get_handle() const;
+	vk::PipelineLayout get_handle() const;
 
 	const ShaderProgram &get_shader_program() const;
 
@@ -52,12 +52,10 @@ class PipelineLayout
 
 	DescriptorSetLayout &get_descriptor_set_layout(uint32_t set_index) const;
 
-	VkShaderStageFlags get_push_constant_range_stage(uint32_t offset, uint32_t size) const;
+	vk::ShaderStageFlags get_push_constant_range_stage(uint32_t offset, uint32_t size) const;
 
   private:
 	Device &device;
-
-	VkPipelineLayout handle{VK_NULL_HANDLE};
 
 	ShaderProgram shader_program;
 

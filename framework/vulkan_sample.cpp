@@ -55,9 +55,9 @@ VulkanSample::~VulkanSample()
 	render_context.reset();
 	device.reset();
 
-	if (surface != VK_NULL_HANDLE)
+	if (surface)
 	{
-		vkDestroySurfaceKHR(instance->get_handle(), surface, nullptr);
+		instance->get_handle().destroy(surface);
 	}
 
 	instance.reset();
@@ -94,7 +94,7 @@ bool VulkanSample::prepare(Platform &platform)
 	auto physical_device = instance->get_gpu();
 
 	// Get supported features from the physical device, and requested features from the sample
-	vkGetPhysicalDeviceFeatures(physical_device, &supported_device_features);
+	supported_device_features = physical_device.getFeatures();
 	get_device_features();
 
 	// Creating vulkan device, specifying the swapchain extension always
@@ -104,17 +104,21 @@ bool VulkanSample::prepare(Platform &platform)
 		requested_device_extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
 	}
 
-	device = std::make_unique<vkb::Device>(physical_device, surface, requested_device_extensions, requested_device_features);
+	device = std::make_unique<vkb::Device>(instance->get_handle(), physical_device, surface, requested_device_extensions, requested_device_features);
 
 	// Preparing render context for rendering
 	render_context = std::make_unique<vkb::RenderContext>(*device, surface, platform.get_window().get_width(), platform.get_window().get_height());
-	render_context->set_present_mode_priority({VK_PRESENT_MODE_FIFO_KHR,
-	                                           VK_PRESENT_MODE_MAILBOX_KHR});
+	render_context->set_present_mode_priority({
+	    vk::PresentModeKHR::eFifo,
+	    vk::PresentModeKHR::eMailbox,
+	});
 
-	render_context->set_surface_format_priority({{VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	                                             {VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	                                             {VK_FORMAT_R8G8B8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR},
-	                                             {VK_FORMAT_B8G8R8A8_UNORM, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}});
+	render_context->set_surface_format_priority({
+	    {vk::Format::eR8G8B8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eB8G8R8A8Srgb, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eR8G8B8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
+	    {vk::Format::eB8G8R8A8Unorm, vk::ColorSpaceKHR::eSrgbNonlinear},
+	});
 
 	prepare_render_context();
 
@@ -191,7 +195,7 @@ void VulkanSample::update(float delta_time)
 
 	auto &command_buffer = render_context->begin();
 
-	command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	command_buffer.begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
 	draw(command_buffer, render_context->get_active_frame().get_render_target());
 
@@ -206,31 +210,31 @@ void VulkanSample::draw(CommandBuffer &command_buffer, RenderTarget &render_targ
 
 	{
 		// Image 0 is the swapchain
-		ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_access_mask = 0;
-		memory_barrier.dst_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		ImageMemoryBarrier memory_barrier;
+		memory_barrier.old_layout      = vk::ImageLayout::eUndefined;
+		memory_barrier.new_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+        memory_barrier.src_access_mask = {};
+		memory_barrier.dst_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
 		command_buffer.image_memory_barrier(views.at(0), memory_barrier);
 
 		// Skip 1 as it is handled later as a depth-stencil attachment
-		for (size_t i = 2; i < views.size(); ++i)
+    	for (size_t i = 0; i < views.size(); ++i)
 		{
 			command_buffer.image_memory_barrier(views.at(i), memory_barrier);
 		}
-	}
+    }
 
 	{
-		ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_UNDEFINED;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-		memory_barrier.src_access_mask = 0;
-		memory_barrier.dst_access_mask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		ImageMemoryBarrier memory_barrier;
+		memory_barrier.old_layout      = vk::ImageLayout::eUndefined;
+		memory_barrier.new_layout      = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+        memory_barrier.src_access_mask = {};
+		memory_barrier.dst_access_mask = vk::AccessFlagBits::eDepthStencilAttachmentRead | vk::AccessFlagBits::eDepthStencilAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eTopOfPipe;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eEarlyFragmentTests| vk::PipelineStageFlagBits::eLateFragmentTests;
 
 		command_buffer.image_memory_barrier(views.at(1), memory_barrier);
 	}
@@ -238,29 +242,30 @@ void VulkanSample::draw(CommandBuffer &command_buffer, RenderTarget &render_targ
 	draw_renderpass(command_buffer, render_target);
 
 	{
-		ImageMemoryBarrier memory_barrier{};
-		memory_barrier.old_layout      = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-		memory_barrier.new_layout      = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		memory_barrier.src_access_mask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		memory_barrier.src_stage_mask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		memory_barrier.dst_stage_mask  = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		// Image 0 is the swapchain
+		ImageMemoryBarrier memory_barrier;
+		memory_barrier.old_layout      = vk::ImageLayout::eColorAttachmentOptimal;
+		memory_barrier.new_layout      = vk::ImageLayout::ePresentSrcKHR;
+        memory_barrier.src_access_mask = vk::AccessFlagBits::eColorAttachmentWrite;
+		memory_barrier.src_stage_mask  = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		memory_barrier.dst_stage_mask  = vk::PipelineStageFlagBits::eBottomOfPipe;
 
 		command_buffer.image_memory_barrier(views.at(0), memory_barrier);
-	}
+    }
 }
 
 void VulkanSample::draw_renderpass(CommandBuffer &command_buffer, RenderTarget &render_target)
 {
 	auto &extent = render_target.get_extent();
 
-	VkViewport viewport{};
+	vk::Viewport viewport;
 	viewport.width    = static_cast<float>(extent.width);
 	viewport.height   = static_cast<float>(extent.height);
 	viewport.minDepth = 0.0f;
 	viewport.maxDepth = 1.0f;
 	command_buffer.set_viewport(0, {viewport});
 
-	VkRect2D scissor{};
+	vk::Rect2D scissor;
 	scissor.extent = extent;
 	command_buffer.set_scissor(0, {scissor});
 
@@ -380,7 +385,7 @@ void VulkanSample::update_debug_window()
 	                                                    to_string(render_context->get_swapchain().get_extent()));
 
 	get_debug_info().insert<field::Static, std::string>("surface_format",
-	                                                    to_string(render_context->get_swapchain().get_format()) + " (" +
+	                                                    vk::to_string(render_context->get_swapchain().get_format()) + " (" +
 	                                                        to_string(get_bits_per_pixel(render_context->get_swapchain().get_format())) + "bbp)");
 
 	get_debug_info().insert<field::Static, uint32_t>("mesh_count", to_u32(scene->get_components<sg::SubMesh>().size()));
@@ -410,7 +415,7 @@ void VulkanSample::load_scene(const std::string &path)
 	}
 }
 
-VkSurfaceKHR VulkanSample::get_surface()
+vk::SurfaceKHR VulkanSample::get_surface()
 {
 	return surface;
 }

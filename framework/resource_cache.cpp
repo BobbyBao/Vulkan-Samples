@@ -52,12 +52,12 @@ std::vector<uint8_t> ResourceCache::serialize()
 	return recorder.get_data();
 }
 
-void ResourceCache::set_pipeline_cache(VkPipelineCache new_pipeline_cache)
+void ResourceCache::set_pipeline_cache(vk::PipelineCache new_pipeline_cache)
 {
 	pipeline_cache = new_pipeline_cache;
 }
 
-ShaderModule &ResourceCache::request_shader_module(VkShaderStageFlagBits stage, const ShaderSource &glsl_source, const ShaderVariant &shader_variant)
+ShaderModule &ResourceCache::request_shader_module(vk::ShaderStageFlagBits stage, const ShaderSource &glsl_source, const ShaderVariant &shader_variant)
 {
 	std::string entry_point{"main"};
 	return request_resource(device, recorder, shader_module_mutex, state.shader_modules, stage, glsl_source, entry_point, shader_variant);
@@ -83,7 +83,7 @@ ComputePipeline &ResourceCache::request_compute_pipeline(PipelineState &pipeline
 	return request_resource(device, recorder, compute_pipeline_mutex, state.compute_pipelines, pipeline_cache, pipeline_state);
 }
 
-DescriptorSet &ResourceCache::request_descriptor_set(DescriptorSetLayout &descriptor_set_layout, const BindingMap<VkDescriptorBufferInfo> &buffer_infos, const BindingMap<VkDescriptorImageInfo> &image_infos)
+DescriptorSet &ResourceCache::request_descriptor_set(DescriptorSetLayout &descriptor_set_layout, const BindingMap<vk::DescriptorBufferInfo> &buffer_infos, const BindingMap<vk::DescriptorImageInfo> &image_infos)
 {
 	auto &descriptor_pool = request_resource(device, recorder, descriptor_set_mutex, state.descriptor_pools, descriptor_set_layout);
 	return request_resource(device, recorder, descriptor_set_mutex, state.descriptor_sets, descriptor_set_layout, descriptor_pool, buffer_infos, image_infos);
@@ -108,8 +108,8 @@ void ResourceCache::clear_pipelines()
 void ResourceCache::update_descriptor_sets(const std::vector<core::ImageView> &old_views, const std::vector<core::ImageView> &new_views)
 {
 	// Find descriptor sets referring to the old image view
-	std::vector<VkWriteDescriptorSet> set_updates;
-	std::set<size_t>                  matches;
+	std::vector<vk::WriteDescriptorSet> set_updates;
+	std::set<size_t>                    matches;
 
 	for (size_t i = 0; i < old_views.size(); ++i)
 	{
@@ -143,7 +143,7 @@ void ResourceCache::update_descriptor_sets(const std::vector<core::ImageView> &o
 
 						// Save struct for writing the update later
 						{
-							VkWriteDescriptorSet write_descriptor_set{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+							vk::WriteDescriptorSet write_descriptor_set;
 
 							if (auto binding_info = descriptor_set.get_layout().get_layout_binding(binding))
 							{
@@ -169,8 +169,7 @@ void ResourceCache::update_descriptor_sets(const std::vector<core::ImageView> &o
 
 	if (!set_updates.empty())
 	{
-		vkUpdateDescriptorSets(device.get_handle(), to_u32(set_updates.size()), set_updates.data(),
-		                       0, nullptr);
+		device.get_handle().updateDescriptorSets(set_updates, nullptr);
 	}
 
 	// Delete old entries (moved out descriptor sets)

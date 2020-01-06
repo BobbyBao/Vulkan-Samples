@@ -32,10 +32,10 @@ struct SubpassInfo
 	std::vector<uint32_t> output_attachments;
 };
 
-class RenderPass
+class RenderPass : protected vk::RenderPass
 {
   public:
-	VkRenderPass get_handle() const;
+	vk::RenderPass get_handle() const;
 
 	RenderPass(Device &                          device,
 	           const std::vector<Attachment> &   attachments,
@@ -54,20 +54,18 @@ class RenderPass
 
 	const uint32_t get_color_output_count(uint32_t subpass_index) const;
 
-	const VkExtent2D get_render_area_granularity() const;
+	const vk::Extent2D get_render_area_granularity() const;
 
   private:
 	Device &device;
 
-	VkRenderPass handle{VK_NULL_HANDLE};
-
-	size_t subpass_count;
+	size_t subpass_count{0};
 
 	// Store attachments for every subpass
-	std::vector<std::vector<VkAttachmentReference>> input_attachments;
+	std::vector<std::vector<vk::AttachmentReference>> input_attachments;
 
-	std::vector<std::vector<VkAttachmentReference>> color_attachments;
+	std::vector<std::vector<vk::AttachmentReference>> color_attachments;
 
-	std::vector<std::vector<VkAttachmentReference>> depth_stencil_attachments;
+	std::vector<std::vector<vk::AttachmentReference>> depth_stencil_attachments;
 };
 }        // namespace vkb

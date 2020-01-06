@@ -32,28 +32,28 @@ HDR::~HDR()
 {
 	if (device)
 	{
-		vkDestroyPipeline(get_device().get_handle(), pipelines.skybox, nullptr);
-		vkDestroyPipeline(get_device().get_handle(), pipelines.reflect, nullptr);
-		vkDestroyPipeline(get_device().get_handle(), pipelines.composition, nullptr);
-		vkDestroyPipeline(get_device().get_handle(), pipelines.bloom[0], nullptr);
-		vkDestroyPipeline(get_device().get_handle(), pipelines.bloom[1], nullptr);
+		get_device().get_handle().destroy(pipelines.skybox);
+		get_device().get_handle().destroy(pipelines.reflect);
+		get_device().get_handle().destroy(pipelines.composition);
+		get_device().get_handle().destroy(pipelines.bloom[0]);
+		get_device().get_handle().destroy(pipelines.bloom[1]);
 
-		vkDestroyPipelineLayout(get_device().get_handle(), pipeline_layouts.models, nullptr);
-		vkDestroyPipelineLayout(get_device().get_handle(), pipeline_layouts.composition, nullptr);
-		vkDestroyPipelineLayout(get_device().get_handle(), pipeline_layouts.bloom_filter, nullptr);
+		get_device().get_handle().destroy(pipeline_layouts.models);
+		get_device().get_handle().destroy(pipeline_layouts.composition);
+		get_device().get_handle().destroy(pipeline_layouts.bloom_filter);
 
-		vkDestroyDescriptorSetLayout(get_device().get_handle(), descriptor_set_layouts.models, nullptr);
-		vkDestroyDescriptorSetLayout(get_device().get_handle(), descriptor_set_layouts.composition, nullptr);
-		vkDestroyDescriptorSetLayout(get_device().get_handle(), descriptor_set_layouts.bloom_filter, nullptr);
+		get_device().get_handle().destroy(descriptor_set_layouts.models);
+		get_device().get_handle().destroy(descriptor_set_layouts.composition);
+		get_device().get_handle().destroy(descriptor_set_layouts.bloom_filter);
 
-		vkDestroyRenderPass(get_device().get_handle(), offscreen.render_pass, nullptr);
-		vkDestroyRenderPass(get_device().get_handle(), filter_pass.render_pass, nullptr);
+		get_device().get_handle().destroy(offscreen.render_pass);
+		get_device().get_handle().destroy(filter_pass.render_pass);
 
-		vkDestroyFramebuffer(get_device().get_handle(), offscreen.framebuffer, nullptr);
-		vkDestroyFramebuffer(get_device().get_handle(), filter_pass.framebuffer, nullptr);
+		get_device().get_handle().destroy(offscreen.framebuffer);
+		get_device().get_handle().destroy(filter_pass.framebuffer);
 
-		vkDestroySampler(get_device().get_handle(), offscreen.sampler, nullptr);
-		vkDestroySampler(get_device().get_handle(), filter_pass.sampler, nullptr);
+		get_device().get_handle().destroy(offscreen.sampler);
+		get_device().get_handle().destroy(filter_pass.sampler);
 
 		offscreen.depth.destroy(get_device().get_handle());
 		offscreen.color[0].destroy(get_device().get_handle());
@@ -61,7 +61,7 @@ HDR::~HDR()
 
 		filter_pass.color[0].destroy(get_device().get_handle());
 
-		vkDestroySampler(get_device().get_handle(), textures.envmap.sampler, nullptr);
+		get_device().get_handle().destroy(textures.envmap.sampler);
 	}
 }
 
@@ -76,34 +76,34 @@ void HDR::get_device_features()
 
 void HDR::build_command_buffers()
 {
-	VkCommandBufferBeginInfo command_buffer_begin_info = vkb::initializers::command_buffer_begin_info();
+	vk::CommandBufferBeginInfo command_buffer_begin_info = vkb::initializers::command_buffer_begin_info();
 
-	VkClearValue clear_values[2];
-	clear_values[0].color        = {{0.0f, 0.0f, 0.0f, 0.0f}};
+	vk::ClearValue clear_values[2];
+	clear_values[0].color        = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
 	clear_values[1].depthStencil = {0.0f, 0};
 
-	VkRenderPassBeginInfo render_pass_begin_info = vkb::initializers::render_pass_begin_info();
-	render_pass_begin_info.renderPass            = render_pass;
-	render_pass_begin_info.renderArea.offset.x   = 0;
-	render_pass_begin_info.renderArea.offset.y   = 0;
-	render_pass_begin_info.clearValueCount       = 2;
-	render_pass_begin_info.pClearValues          = clear_values;
+	vk::RenderPassBeginInfo render_pass_begin_info = vkb::initializers::render_pass_begin_info();
+	render_pass_begin_info.renderPass              = render_pass;
+	render_pass_begin_info.renderArea.offset.x     = 0;
+	render_pass_begin_info.renderArea.offset.y     = 0;
+	render_pass_begin_info.clearValueCount         = 2;
+	render_pass_begin_info.pClearValues            = clear_values;
 
 	for (int32_t i = 0; i < draw_cmd_buffers.size(); ++i)
 	{
-		VK_CHECK(vkBeginCommandBuffer(draw_cmd_buffers[i], &command_buffer_begin_info));
+		draw_cmd_buffers[i].begin(command_buffer_begin_info);
 
 		{
 			/*
 				First pass: Render scene to offscreen framebuffer
 			*/
 
-			std::array<VkClearValue, 3> clear_values;
-			clear_values[0].color        = {{0.0f, 0.0f, 0.0f, 0.0f}};
-			clear_values[1].color        = {{0.0f, 0.0f, 0.0f, 0.0f}};
+			std::array<vk::ClearValue, 3> clear_values;
+			clear_values[0].color        = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
+			clear_values[1].color        = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
 			clear_values[2].depthStencil = {0.0f, 0};
 
-			VkRenderPassBeginInfo render_pass_begin_info    = vkb::initializers::render_pass_begin_info();
+			vk::RenderPassBeginInfo render_pass_begin_info  = vkb::initializers::render_pass_begin_info();
 			render_pass_begin_info.renderPass               = offscreen.render_pass;
 			render_pass_begin_info.framebuffer              = offscreen.framebuffer;
 			render_pass_begin_info.renderArea.extent.width  = offscreen.width;
@@ -111,32 +111,32 @@ void HDR::build_command_buffers()
 			render_pass_begin_info.clearValueCount          = 3;
 			render_pass_begin_info.pClearValues             = clear_values.data();
 
-			vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+			draw_cmd_buffers[i].beginRenderPass(&render_pass_begin_info, vk::SubpassContents::eInline);
 
-			VkViewport viewport = vkb::initializers::viewport((float) offscreen.width, (float) offscreen.height, 0.0f, 1.0f);
-			vkCmdSetViewport(draw_cmd_buffers[i], 0, 1, &viewport);
+			vk::Viewport viewport = vkb::initializers::viewport((float) offscreen.width, (float) offscreen.height, 0.0f, 1.0f);
+			draw_cmd_buffers[i].setViewport(0, viewport);
 
-			VkRect2D scissor = vkb::initializers::rect2D(offscreen.width, offscreen.height, 0, 0);
-			vkCmdSetScissor(draw_cmd_buffers[i], 0, 1, &scissor);
+			vk::Rect2D scissor = vkb::initializers::rect2D(offscreen.width, offscreen.height, 0, 0);
+			draw_cmd_buffers[i].setScissor(0, scissor);
 
-			VkDeviceSize offsets[1] = {0};
+			vk::DeviceSize offsets[1] = {0};
 
 			// Skybox
 			if (display_skybox)
 			{
-				vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.skybox);
-				vkCmdBindDescriptorSets(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layouts.models, 0, 1, &descriptor_sets.skybox, 0, NULL);
+				draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines.skybox);
+				draw_cmd_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layouts.models, 0, descriptor_sets.skybox, nullptr);
 
 				draw_model(models.skybox, draw_cmd_buffers[i]);
 			}
 
 			// 3D object
-			vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.reflect);
-			vkCmdBindDescriptorSets(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layouts.models, 0, 1, &descriptor_sets.object, 0, NULL);
+			draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines.reflect);
+			draw_cmd_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layouts.models, 0, descriptor_sets.object, nullptr);
 
 			draw_model(models.objects[models.object_index], draw_cmd_buffers[i]);
 
-			vkCmdEndRenderPass(draw_cmd_buffers[i]);
+			draw_cmd_buffers[i].endRenderPass();
 		}
 
 		/*
@@ -144,12 +144,12 @@ void HDR::build_command_buffers()
 		*/
 		if (bloom)
 		{
-			VkClearValue clear_values[2];
-			clear_values[0].color        = {{0.0f, 0.0f, 0.0f, 0.0f}};
+			vk::ClearValue clear_values[2];
+			clear_values[0].color        = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
 			clear_values[1].depthStencil = {0.0f, 0};
 
 			// Bloom filter
-			VkRenderPassBeginInfo render_pass_begin_info    = vkb::initializers::render_pass_begin_info();
+			vk::RenderPassBeginInfo render_pass_begin_info  = vkb::initializers::render_pass_begin_info();
 			render_pass_begin_info.framebuffer              = filter_pass.framebuffer;
 			render_pass_begin_info.renderPass               = filter_pass.render_pass;
 			render_pass_begin_info.clearValueCount          = 1;
@@ -157,20 +157,20 @@ void HDR::build_command_buffers()
 			render_pass_begin_info.renderArea.extent.height = filter_pass.height;
 			render_pass_begin_info.pClearValues             = clear_values;
 
-			vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+			draw_cmd_buffers[i].beginRenderPass(&render_pass_begin_info, vk::SubpassContents::eInline);
 
-			VkViewport viewport = vkb::initializers::viewport((float) filter_pass.width, (float) filter_pass.height, 0.0f, 1.0f);
-			vkCmdSetViewport(draw_cmd_buffers[i], 0, 1, &viewport);
+			vk::Viewport viewport = vkb::initializers::viewport((float) filter_pass.width, (float) filter_pass.height, 0.0f, 1.0f);
+			draw_cmd_buffers[i].setViewport(0, viewport);
 
-			VkRect2D scissor = vkb::initializers::rect2D(filter_pass.width, filter_pass.height, 0, 0);
-			vkCmdSetScissor(draw_cmd_buffers[i], 0, 1, &scissor);
+			vk::Rect2D scissor = vkb::initializers::rect2D(filter_pass.width, filter_pass.height, 0, 0);
+			draw_cmd_buffers[i].setScissor(0, scissor);
 
-			vkCmdBindDescriptorSets(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layouts.bloom_filter, 0, 1, &descriptor_sets.bloom_filter, 0, NULL);
+			draw_cmd_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layouts.bloom_filter, 0, 1, &descriptor_sets.bloom_filter, 0, NULL);
 
-			vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.bloom[1]);
-			vkCmdDraw(draw_cmd_buffers[i], 3, 1, 0, 0);
+			draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines.bloom[1]);
+			draw_cmd_buffers[i].draw(3, 1, 0, 0);
 
-			vkCmdEndRenderPass(draw_cmd_buffers[i]);
+			draw_cmd_buffers[i].endRenderPass();
 		}
 
 		/*
@@ -181,12 +181,12 @@ void HDR::build_command_buffers()
 			Third render pass: Scene rendering with applied second bloom pass (when enabled)
 		*/
 		{
-			VkClearValue clear_values[2];
-			clear_values[0].color        = {{0.0f, 0.0f, 0.0f, 0.0f}};
+			vk::ClearValue clear_values[2];
+			clear_values[0].color        = std::array<float, 4>{0.0f, 0.0f, 0.0f, 0.0f};
 			clear_values[1].depthStencil = {0.0f, 0};
 
 			// Final composition
-			VkRenderPassBeginInfo render_pass_begin_info    = vkb::initializers::render_pass_begin_info();
+			vk::RenderPassBeginInfo render_pass_begin_info  = vkb::initializers::render_pass_begin_info();
 			render_pass_begin_info.framebuffer              = framebuffers[i];
 			render_pass_begin_info.renderPass               = render_pass;
 			render_pass_begin_info.clearValueCount          = 2;
@@ -194,85 +194,85 @@ void HDR::build_command_buffers()
 			render_pass_begin_info.renderArea.extent.height = height;
 			render_pass_begin_info.pClearValues             = clear_values;
 
-			vkCmdBeginRenderPass(draw_cmd_buffers[i], &render_pass_begin_info, VK_SUBPASS_CONTENTS_INLINE);
+			draw_cmd_buffers[i].beginRenderPass(render_pass_begin_info, vk::SubpassContents::eInline);
 
-			VkViewport viewport = vkb::initializers::viewport((float) width, (float) height, 0.0f, 1.0f);
-			vkCmdSetViewport(draw_cmd_buffers[i], 0, 1, &viewport);
+			vk::Viewport viewport = vkb::initializers::viewport((float) width, (float) height, 0.0f, 1.0f);
+			draw_cmd_buffers[i].setViewport(0, viewport);
 
-			VkRect2D scissor = vkb::initializers::rect2D(width, height, 0, 0);
-			vkCmdSetScissor(draw_cmd_buffers[i], 0, 1, &scissor);
+			vk::Rect2D scissor = vkb::initializers::rect2D(width, height, 0, 0);
+			draw_cmd_buffers[i].setScissor(0, scissor);
 
-			vkCmdBindDescriptorSets(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layouts.composition, 0, 1, &descriptor_sets.composition, 0, NULL);
+			draw_cmd_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pipeline_layouts.composition, 0, descriptor_sets.composition, nullptr);
 
 			// Scene
-			vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.composition);
-			vkCmdDraw(draw_cmd_buffers[i], 3, 1, 0, 0);
+			draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines.composition);
+			draw_cmd_buffers[i].draw(3, 1, 0, 0);
 
 			// Bloom
 			if (bloom)
 			{
-				vkCmdBindPipeline(draw_cmd_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines.bloom[0]);
-				vkCmdDraw(draw_cmd_buffers[i], 3, 1, 0, 0);
+				draw_cmd_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, pipelines.bloom[0]);
+				draw_cmd_buffers[i].draw(3, 1, 0, 0);
 			}
 
 			draw_ui(draw_cmd_buffers[i]);
 
-			vkCmdEndRenderPass(draw_cmd_buffers[i]);
+			draw_cmd_buffers[i].endRenderPass();
 		}
 
-		VK_CHECK(vkEndCommandBuffer(draw_cmd_buffers[i]));
+		draw_cmd_buffers[i].end();
 	}
 }
 
-void HDR::create_attachment(VkFormat format, VkImageUsageFlagBits usage, FrameBufferAttachment *attachment)
+void HDR::create_attachment(vk::Format format, vk::ImageUsageFlagBits usage, FrameBufferAttachment *attachment)
 {
-	VkImageAspectFlags aspect_mask = 0;
-	VkImageLayout      image_layout;
+	vk::ImageAspectFlags aspect_mask;
+	vk::ImageLayout      image_layout;
 
 	attachment->format = format;
 
-	if (usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+	if (usage & vk::ImageUsageFlagBits::eColorAttachment)
 	{
-		aspect_mask  = VK_IMAGE_ASPECT_COLOR_BIT;
-		image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		aspect_mask  = vk::ImageAspectFlagBits::eColor;
+		image_layout = vk::ImageLayout::eColorAttachmentOptimal;
 	}
-	if (usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
+	if (usage & vk::ImageUsageFlagBits::eDepthStencilAttachment)
 	{
-		aspect_mask = VK_IMAGE_ASPECT_DEPTH_BIT;
-		// Stencil aspect should only be set on depth + stencil formats (VK_FORMAT_D16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8_UINT
-		if (format >= VK_FORMAT_D16_UNORM_S8_UINT)
+		aspect_mask = vk::ImageAspectFlagBits::eDepth;
+		// Stencil aspect should only be set on depth + stencil formats (vk::Format::eD16_UNORM_S8_UINT..VK_FORMAT_D32_SFLOAT_S8Uint
+		if (format >= vk::Format::eD16UnormS8Uint)
 		{
-			aspect_mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+			aspect_mask |= vk::ImageAspectFlagBits::eStencil;
 		}
-		image_layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		image_layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 	}
 
-	assert(aspect_mask > 0);
+	assert(aspect_mask.operator VkImageAspectFlags() > 0);
 
-	VkImageCreateInfo image = vkb::initializers::image_create_info();
-	image.imageType         = VK_IMAGE_TYPE_2D;
-	image.format            = format;
-	image.extent.width      = offscreen.width;
-	image.extent.height     = offscreen.height;
-	image.extent.depth      = 1;
-	image.mipLevels         = 1;
-	image.arrayLayers       = 1;
-	image.samples           = VK_SAMPLE_COUNT_1_BIT;
-	image.tiling            = VK_IMAGE_TILING_OPTIMAL;
-	image.usage             = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+	vk::ImageCreateInfo image = vkb::initializers::image_create_info();
+	image.imageType           = vk::ImageType::e2D;
+	image.format              = format;
+	image.extent.width        = offscreen.width;
+	image.extent.height       = offscreen.height;
+	image.extent.depth        = 1;
+	image.mipLevels           = 1;
+	image.arrayLayers         = 1;
+	image.samples             = vk::SampleCountFlagBits::e1;
+	image.tiling              = vk::ImageTiling::eOptimal;
+	image.usage               = usage | vk::ImageUsageFlagBits::eSampled;
 
-	VkMemoryAllocateInfo memory_allocate_info = vkb::initializers::memory_allocate_info();
-	VkMemoryRequirements memory_requirements;
+	vk::MemoryAllocateInfo memory_allocate_info = vkb::initializers::memory_allocate_info();
+	vk::MemoryRequirements memory_requirements;
 
-	VK_CHECK(vkCreateImage(get_device().get_handle(), &image, nullptr, &attachment->image));
-	vkGetImageMemoryRequirements(get_device().get_handle(), attachment->image, &memory_requirements);
+	attachment->image                    = get_device().get_handle().createImage(image);
+	memory_requirements                  = get_device().get_handle().getImageMemoryRequirements(attachment->image);
 	memory_allocate_info.allocationSize  = memory_requirements.size;
-	memory_allocate_info.memoryTypeIndex = get_device().get_memory_type(memory_requirements.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-	VK_CHECK(vkAllocateMemory(get_device().get_handle(), &memory_allocate_info, nullptr, &attachment->mem));
-	VK_CHECK(vkBindImageMemory(get_device().get_handle(), attachment->image, attachment->mem, 0));
+	memory_allocate_info.memoryTypeIndex = get_device().get_memory_type(memory_requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eDeviceLocal);
+	attachment->mem                      = get_device().get_handle().allocateMemory(memory_allocate_info);
+	get_device().get_handle().bindImageMemory(attachment->image, attachment->mem, 0);
 
-	VkImageViewCreateInfo image_view_create_info           = vkb::initializers::image_view_create_info();
-	image_view_create_info.viewType                        = VK_IMAGE_VIEW_TYPE_2D;
+	vk::ImageViewCreateInfo image_view_create_info;
+	image_view_create_info.viewType                        = vk::ImageViewType::e2D;
 	image_view_create_info.format                          = format;
 	image_view_create_info.subresourceRange                = {};
 	image_view_create_info.subresourceRange.aspectMask     = aspect_mask;
@@ -281,7 +281,7 @@ void HDR::create_attachment(VkFormat format, VkImageUsageFlagBits usage, FrameBu
 	image_view_create_info.subresourceRange.baseArrayLayer = 0;
 	image_view_create_info.subresourceRange.layerCount     = 1;
 	image_view_create_info.image                           = attachment->image;
-	VK_CHECK(vkCreateImageView(get_device().get_handle(), &image_view_create_info, nullptr, &attachment->view));
+	attachment->view                                       = get_device().get_handle().createImageView(image_view_create_info);
 }
 
 // Prepare a new framebuffer and attachments for offscreen rendering (G-Buffer)
@@ -295,31 +295,31 @@ void HDR::prepare_offscreen_buffer()
 
 		// We are using two 128-Bit RGBA floating point color buffers for this sample
 		// In a performance or bandwith-limited scenario you should consider using a format with lower precision
-		create_attachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &offscreen.color[0]);
-		create_attachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &offscreen.color[1]);
+		create_attachment(vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eColorAttachment, &offscreen.color[0]);
+		create_attachment(vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eColorAttachment, &offscreen.color[1]);
 		// Depth attachment
-		create_attachment(depth_format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, &offscreen.depth);
+		create_attachment(depth_format, vk::ImageUsageFlagBits::eDepthStencilAttachment, &offscreen.depth);
 
 		// Set up separate renderpass with references to the colorand depth attachments
-		std::array<VkAttachmentDescription, 3> attachment_descriptions = {};
+		std::array<vk::AttachmentDescription, 3> attachment_descriptions = {};
 
 		// Init attachment properties
 		for (uint32_t i = 0; i < 3; ++i)
 		{
-			attachment_descriptions[i].samples        = VK_SAMPLE_COUNT_1_BIT;
-			attachment_descriptions[i].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			attachment_descriptions[i].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-			attachment_descriptions[i].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			attachment_descriptions[i].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			attachment_descriptions[i].samples        = vk::SampleCountFlagBits::e1;
+			attachment_descriptions[i].loadOp         = vk::AttachmentLoadOp::eClear;
+			attachment_descriptions[i].storeOp        = vk::AttachmentStoreOp::eStore;
+			attachment_descriptions[i].stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+			attachment_descriptions[i].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
 			if (i == 2)
 			{
-				attachment_descriptions[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				attachment_descriptions[i].finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				attachment_descriptions[i].initialLayout = vk::ImageLayout::eUndefined;
+				attachment_descriptions[i].finalLayout   = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 			}
 			else
 			{
-				attachment_descriptions[i].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-				attachment_descriptions[i].finalLayout   = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				attachment_descriptions[i].initialLayout = vk::ImageLayout::eUndefined;
+				attachment_descriptions[i].finalLayout   = vk::ImageLayout::eShaderReadOnlyOptimal;
 			}
 		}
 
@@ -328,80 +328,80 @@ void HDR::prepare_offscreen_buffer()
 		attachment_descriptions[1].format = offscreen.color[1].format;
 		attachment_descriptions[2].format = offscreen.depth.format;
 
-		std::vector<VkAttachmentReference> color_references;
-		color_references.push_back({0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
-		color_references.push_back({1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+		std::vector<vk::AttachmentReference> color_references;
+		color_references.push_back({0, vk::ImageLayout::eColorAttachmentOptimal});
+		color_references.push_back({1, vk::ImageLayout::eColorAttachmentOptimal});
 
-		VkAttachmentReference depth_reference = {};
-		depth_reference.attachment            = 2;
-		depth_reference.layout                = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+		vk::AttachmentReference depth_reference = {};
+		depth_reference.attachment              = 2;
+		depth_reference.layout                  = vk::ImageLayout::eDepthStencilAttachmentOptimal;
 
-		VkSubpassDescription subpass    = {};
-		subpass.pipelineBindPoint       = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		vk::SubpassDescription subpass  = {};
+		subpass.pipelineBindPoint       = vk::PipelineBindPoint::eGraphics;
 		subpass.pColorAttachments       = color_references.data();
 		subpass.colorAttachmentCount    = 2;
 		subpass.pDepthStencilAttachment = &depth_reference;
 
 		// Use subpass dependencies for attachment layput transitions
-		std::array<VkSubpassDependency, 2> dependencies;
+		std::array<vk::SubpassDependency, 2> dependencies;
 
 		dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass      = 0;
-		dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[0].srcStageMask    = vk::PipelineStageFlagBits::eBottomOfPipe;
+		dependencies[0].dstStageMask    = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependencies[0].srcAccessMask   = vk::AccessFlagBits::eMemoryRead;
+		dependencies[0].dstAccessMask   = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+		dependencies[0].dependencyFlags = vk::DependencyFlagBits::eByRegion;
 
 		dependencies[1].srcSubpass      = 0;
 		dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
-		dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[1].srcStageMask    = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependencies[1].dstStageMask    = vk::PipelineStageFlagBits::eBottomOfPipe;
+		dependencies[1].srcAccessMask   = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+		dependencies[1].dstAccessMask   = vk::AccessFlagBits::eMemoryRead;
+		dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
 
-		VkRenderPassCreateInfo render_pass_create_info = {};
-		render_pass_create_info.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		render_pass_create_info.pAttachments           = attachment_descriptions.data();
-		render_pass_create_info.attachmentCount        = static_cast<uint32_t>(attachment_descriptions.size());
-		render_pass_create_info.subpassCount           = 1;
-		render_pass_create_info.pSubpasses             = &subpass;
-		render_pass_create_info.dependencyCount        = 2;
-		render_pass_create_info.pDependencies          = dependencies.data();
+		vk::RenderPassCreateInfo render_pass_create_info;
+		render_pass_create_info.pAttachments    = attachment_descriptions.data();
+		render_pass_create_info.attachmentCount = static_cast<uint32_t>(attachment_descriptions.size());
+		render_pass_create_info.subpassCount    = 1;
+		render_pass_create_info.pSubpasses      = &subpass;
+		render_pass_create_info.dependencyCount = 2;
+		render_pass_create_info.pDependencies   = dependencies.data();
 
-		VK_CHECK(vkCreateRenderPass(get_device().get_handle(), &render_pass_create_info, nullptr, &offscreen.render_pass));
+		offscreen.render_pass = get_device().get_handle().createRenderPass(render_pass_create_info);
 
-		std::array<VkImageView, 3> attachments;
+		std::array<vk::ImageView, 3> attachments;
 		attachments[0] = offscreen.color[0].view;
 		attachments[1] = offscreen.color[1].view;
 		attachments[2] = offscreen.depth.view;
 
-		VkFramebufferCreateInfo framebuffer_create_info = {};
-		framebuffer_create_info.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebuffer_create_info.pNext                   = NULL;
-		framebuffer_create_info.renderPass              = offscreen.render_pass;
-		framebuffer_create_info.pAttachments            = attachments.data();
-		framebuffer_create_info.attachmentCount         = static_cast<uint32_t>(attachments.size());
-		framebuffer_create_info.width                   = offscreen.width;
-		framebuffer_create_info.height                  = offscreen.height;
-		framebuffer_create_info.layers                  = 1;
-		VK_CHECK(vkCreateFramebuffer(get_device().get_handle(), &framebuffer_create_info, nullptr, &offscreen.framebuffer));
+		vk::FramebufferCreateInfo framebuffer_create_info = {};
+		framebuffer_create_info.pNext                     = NULL;
+		framebuffer_create_info.renderPass                = offscreen.render_pass;
+		framebuffer_create_info.pAttachments              = attachments.data();
+		framebuffer_create_info.attachmentCount           = static_cast<uint32_t>(attachments.size());
+		framebuffer_create_info.width                     = offscreen.width;
+		framebuffer_create_info.height                    = offscreen.height;
+		framebuffer_create_info.layers                    = 1;
+
+		offscreen.framebuffer = get_device().get_handle().createFramebuffer(framebuffer_create_info);
 
 		// Create sampler to sample from the color attachments
-		VkSamplerCreateInfo sampler = vkb::initializers::sampler_create_info();
-		sampler.magFilter           = VK_FILTER_NEAREST;
-		sampler.minFilter           = VK_FILTER_NEAREST;
-		sampler.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		sampler.addressModeU        = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler.addressModeV        = sampler.addressModeU;
-		sampler.addressModeW        = sampler.addressModeU;
-		sampler.mipLodBias          = 0.0f;
-		sampler.maxAnisotropy       = 1.0f;
-		sampler.minLod              = 0.0f;
-		sampler.maxLod              = 1.0f;
-		sampler.borderColor         = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CHECK(vkCreateSampler(get_device().get_handle(), &sampler, nullptr, &offscreen.sampler));
+		vk::SamplerCreateInfo sampler = vkb::initializers::sampler_create_info();
+		sampler.magFilter             = vk::Filter::eNearest;
+		sampler.minFilter             = vk::Filter::eNearest;
+		sampler.mipmapMode            = vk::SamplerMipmapMode::eLinear;
+		sampler.addressModeU          = vk::SamplerAddressMode::eClampToEdge;
+		sampler.addressModeV          = sampler.addressModeU;
+		sampler.addressModeW          = sampler.addressModeU;
+		sampler.mipLodBias            = 0.0f;
+		sampler.maxAnisotropy         = 1.0f;
+		sampler.minLod                = 0.0f;
+		sampler.maxLod                = 1.0f;
+		sampler.borderColor           = vk::BorderColor::eFloatOpaqueWhite;
+
+		offscreen.sampler = get_device().get_handle().createSampler(sampler);
 	}
 
 	// Bloom separable filter pass
@@ -412,87 +412,87 @@ void HDR::prepare_offscreen_buffer()
 		// Color attachments
 
 		// Two floating point color buffers
-		create_attachment(VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, &filter_pass.color[0]);
+		create_attachment(vk::Format::eR32G32B32A32Sfloat, vk::ImageUsageFlagBits::eColorAttachment, &filter_pass.color[0]);
 
 		// Set up separate renderpass with references to the colorand depth attachments
-		std::array<VkAttachmentDescription, 1> attachment_descriptions = {};
+		std::array<vk::AttachmentDescription, 1> attachment_descriptions = {};
 
 		// Init attachment properties
-		attachment_descriptions[0].samples        = VK_SAMPLE_COUNT_1_BIT;
-		attachment_descriptions[0].loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachment_descriptions[0].storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
-		attachment_descriptions[0].stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		attachment_descriptions[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		attachment_descriptions[0].initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-		attachment_descriptions[0].finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		attachment_descriptions[0].samples        = vk::SampleCountFlagBits::e1;
+		attachment_descriptions[0].loadOp         = vk::AttachmentLoadOp::eClear;
+		attachment_descriptions[0].storeOp        = vk::AttachmentStoreOp::eStore;
+		attachment_descriptions[0].stencilLoadOp  = vk::AttachmentLoadOp::eDontCare;
+		attachment_descriptions[0].stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+		attachment_descriptions[0].initialLayout  = vk::ImageLayout::eUndefined;
+		attachment_descriptions[0].finalLayout    = vk::ImageLayout::eShaderReadOnlyOptimal;
 		attachment_descriptions[0].format         = filter_pass.color[0].format;
 
-		std::vector<VkAttachmentReference> color_references;
-		color_references.push_back({0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL});
+		std::vector<vk::AttachmentReference> color_references;
+		color_references.push_back({0, vk::ImageLayout::eColorAttachmentOptimal});
 
-		VkSubpassDescription subpass = {};
-		subpass.pipelineBindPoint    = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.pColorAttachments    = color_references.data();
-		subpass.colorAttachmentCount = 1;
+		vk::SubpassDescription subpass = {};
+		subpass.pipelineBindPoint      = vk::PipelineBindPoint::eGraphics;
+		subpass.pColorAttachments      = color_references.data();
+		subpass.colorAttachmentCount   = 1;
 
 		// Use subpass dependencies for attachment layput transitions
-		std::array<VkSubpassDependency, 2> dependencies;
+		std::array<vk::SubpassDependency, 2> dependencies;
 
 		dependencies[0].srcSubpass      = VK_SUBPASS_EXTERNAL;
 		dependencies[0].dstSubpass      = 0;
-		dependencies[0].srcStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[0].dstStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[0].srcAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[0].dstAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[0].srcStageMask    = vk::PipelineStageFlagBits::eBottomOfPipe;
+		dependencies[0].dstStageMask    = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependencies[0].srcAccessMask   = vk::AccessFlagBits::eMemoryRead;
+		dependencies[0].dstAccessMask   = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+		dependencies[0].dependencyFlags = vk::DependencyFlagBits::eByRegion;
 
 		dependencies[1].srcSubpass      = 0;
 		dependencies[1].dstSubpass      = VK_SUBPASS_EXTERNAL;
-		dependencies[1].srcStageMask    = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		dependencies[1].dstStageMask    = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-		dependencies[1].srcAccessMask   = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dependencies[1].dstAccessMask   = VK_ACCESS_MEMORY_READ_BIT;
-		dependencies[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+		dependencies[1].srcStageMask    = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+		dependencies[1].dstStageMask    = vk::PipelineStageFlagBits::eBottomOfPipe;
+		dependencies[1].srcAccessMask   = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+		dependencies[1].dstAccessMask   = vk::AccessFlagBits::eMemoryRead;
+		dependencies[1].dependencyFlags = vk::DependencyFlagBits::eByRegion;
 
-		VkRenderPassCreateInfo render_pass_create_info = {};
-		render_pass_create_info.sType                  = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		render_pass_create_info.pAttachments           = attachment_descriptions.data();
-		render_pass_create_info.attachmentCount        = static_cast<uint32_t>(attachment_descriptions.size());
-		render_pass_create_info.subpassCount           = 1;
-		render_pass_create_info.pSubpasses             = &subpass;
-		render_pass_create_info.dependencyCount        = 2;
-		render_pass_create_info.pDependencies          = dependencies.data();
+		vk::RenderPassCreateInfo render_pass_create_info = {};
+		render_pass_create_info.pAttachments             = attachment_descriptions.data();
+		render_pass_create_info.attachmentCount          = static_cast<uint32_t>(attachment_descriptions.size());
+		render_pass_create_info.subpassCount             = 1;
+		render_pass_create_info.pSubpasses               = &subpass;
+		render_pass_create_info.dependencyCount          = 2;
+		render_pass_create_info.pDependencies            = dependencies.data();
 
-		VK_CHECK(vkCreateRenderPass(get_device().get_handle(), &render_pass_create_info, nullptr, &filter_pass.render_pass));
+		filter_pass.render_pass = get_device().get_handle().createRenderPass(render_pass_create_info);
 
-		std::array<VkImageView, 1> attachments;
+		std::array<vk::ImageView, 1> attachments;
 		attachments[0] = filter_pass.color[0].view;
 
-		VkFramebufferCreateInfo framebuffer_create_info = {};
-		framebuffer_create_info.sType                   = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebuffer_create_info.pNext                   = NULL;
-		framebuffer_create_info.renderPass              = filter_pass.render_pass;
-		framebuffer_create_info.pAttachments            = attachments.data();
-		framebuffer_create_info.attachmentCount         = static_cast<uint32_t>(attachments.size());
-		framebuffer_create_info.width                   = filter_pass.width;
-		framebuffer_create_info.height                  = filter_pass.height;
-		framebuffer_create_info.layers                  = 1;
-		VK_CHECK(vkCreateFramebuffer(get_device().get_handle(), &framebuffer_create_info, nullptr, &filter_pass.framebuffer));
+		vk::FramebufferCreateInfo framebuffer_create_info = {};
+		framebuffer_create_info.pNext                     = NULL;
+		framebuffer_create_info.renderPass                = filter_pass.render_pass;
+		framebuffer_create_info.pAttachments              = attachments.data();
+		framebuffer_create_info.attachmentCount           = static_cast<uint32_t>(attachments.size());
+		framebuffer_create_info.width                     = filter_pass.width;
+		framebuffer_create_info.height                    = filter_pass.height;
+		framebuffer_create_info.layers                    = 1;
+
+		filter_pass.framebuffer = get_device().get_handle().createFramebuffer(framebuffer_create_info);
 
 		// Create sampler to sample from the color attachments
-		VkSamplerCreateInfo sampler = vkb::initializers::sampler_create_info();
-		sampler.magFilter           = VK_FILTER_NEAREST;
-		sampler.minFilter           = VK_FILTER_NEAREST;
-		sampler.mipmapMode          = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-		sampler.addressModeU        = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-		sampler.addressModeV        = sampler.addressModeU;
-		sampler.addressModeW        = sampler.addressModeU;
-		sampler.mipLodBias          = 0.0f;
-		sampler.maxAnisotropy       = 1.0f;
-		sampler.minLod              = 0.0f;
-		sampler.maxLod              = 1.0f;
-		sampler.borderColor         = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
-		VK_CHECK(vkCreateSampler(get_device().get_handle(), &sampler, nullptr, &filter_pass.sampler));
+		vk::SamplerCreateInfo sampler = vkb::initializers::sampler_create_info();
+		sampler.magFilter             = vk::Filter::eNearest;
+		sampler.minFilter             = vk::Filter::eNearest;
+		sampler.mipmapMode            = vk::SamplerMipmapMode::eLinear;
+		sampler.addressModeU          = vk::SamplerAddressMode::eClampToEdge;
+		sampler.addressModeV          = sampler.addressModeU;
+		sampler.addressModeW          = sampler.addressModeU;
+		sampler.mipLodBias            = 0.0f;
+		sampler.maxAnisotropy         = 1.0f;
+		sampler.minLod                = 0.0f;
+		sampler.maxLod                = 1.0f;
+		sampler.borderColor           = vk::BorderColor::eFloatOpaqueWhite;
+
+		filter_pass.sampler = get_device().get_handle().createSampler(sampler);
 	}
 }
 
@@ -524,183 +524,162 @@ void HDR::load_assets()
 
 void HDR::setup_descriptor_pool()
 {
-	std::vector<VkDescriptorPoolSize> pool_sizes = {
-	    vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 4),
-	    vkb::initializers::descriptor_pool_size(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 6)};
-	uint32_t                   num_descriptor_sets = 4;
-	VkDescriptorPoolCreateInfo descriptor_pool_create_info =
-	    vkb::initializers::descriptor_pool_create_info(static_cast<uint32_t>(pool_sizes.size()), pool_sizes.data(), num_descriptor_sets);
-	VK_CHECK(vkCreateDescriptorPool(get_device().get_handle(), &descriptor_pool_create_info, nullptr, &descriptor_pool));
+	std::vector<vk::DescriptorPoolSize> pool_sizes = {
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eUniformBuffer, 4),
+	    vkb::initializers::descriptor_pool_size(vk::DescriptorType::eCombinedImageSampler, 6)};
+
+	uint32_t num_descriptor_sets = 4;
+
+	vk::DescriptorPoolCreateInfo descriptor_pool_create_info =
+	    vkb::initializers::descriptor_pool_create_info(pool_sizes, num_descriptor_sets);
+
+	descriptor_pool = get_device().get_handle().createDescriptorPool(descriptor_pool_create_info);
 }
 
 void HDR::setup_descriptor_set_layout()
 {
-	std::vector<VkDescriptorSetLayoutBinding> set_layout_bindings = {
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT, 2),
+	std::vector<vk::DescriptorSetLayoutBinding> set_layout_bindings = {
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eVertex, 0),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eUniformBuffer, vk::ShaderStageFlagBits::eFragment, 2),
 	};
 
-	VkDescriptorSetLayoutCreateInfo descriptor_layout_create_info =
+	vk::DescriptorSetLayoutCreateInfo descriptor_layout_create_info =
 	    vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings.data(), static_cast<uint32_t>(set_layout_bindings.size()));
 
-	VK_CHECK(vkCreateDescriptorSetLayout(get_device().get_handle(), &descriptor_layout_create_info, nullptr, &descriptor_set_layouts.models));
+	descriptor_set_layouts.models = get_device().get_handle().createDescriptorSetLayout(descriptor_layout_create_info);
 
-	VkPipelineLayoutCreateInfo pipeline_layout_create_info =
+	vk::PipelineLayoutCreateInfo pipeline_layout_create_info =
 	    vkb::initializers::pipeline_layout_create_info(
 	        &descriptor_set_layouts.models,
 	        1);
 
-	VK_CHECK(vkCreatePipelineLayout(get_device().get_handle(), &pipeline_layout_create_info, nullptr, &pipeline_layouts.models));
+	pipeline_layouts.models = get_device().get_handle().createPipelineLayout(pipeline_layout_create_info);
 
 	// Bloom filter
 	set_layout_bindings = {
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 0),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1),
 	};
 
-	descriptor_layout_create_info = vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings.data(), static_cast<uint32_t>(set_layout_bindings.size()));
-	VK_CHECK(vkCreateDescriptorSetLayout(get_device().get_handle(), &descriptor_layout_create_info, nullptr, &descriptor_set_layouts.bloom_filter));
+	descriptor_layout_create_info       = vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings.data(), static_cast<uint32_t>(set_layout_bindings.size()));
+	descriptor_set_layouts.bloom_filter = get_device().get_handle().createDescriptorSetLayout(descriptor_layout_create_info);
 
-	pipeline_layout_create_info = vkb::initializers::pipeline_layout_create_info(&descriptor_set_layouts.bloom_filter, 1);
-	VK_CHECK(vkCreatePipelineLayout(get_device().get_handle(), &pipeline_layout_create_info, nullptr, &pipeline_layouts.bloom_filter));
+	pipeline_layout_create_info   = vkb::initializers::pipeline_layout_create_info(&descriptor_set_layouts.bloom_filter, 1);
+	pipeline_layouts.bloom_filter = get_device().get_handle().createPipelineLayout(pipeline_layout_create_info);
 
 	// G-Buffer composition
 	set_layout_bindings = {
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0),
-	    vkb::initializers::descriptor_set_layout_binding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 1),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 0),
+	    vkb::initializers::descriptor_set_layout_binding(vk::DescriptorType::eCombinedImageSampler, vk::ShaderStageFlagBits::eFragment, 1),
 	};
 
-	descriptor_layout_create_info = vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings.data(), static_cast<uint32_t>(set_layout_bindings.size()));
-	VK_CHECK(vkCreateDescriptorSetLayout(get_device().get_handle(), &descriptor_layout_create_info, nullptr, &descriptor_set_layouts.composition));
+	descriptor_layout_create_info      = vkb::initializers::descriptor_set_layout_create_info(set_layout_bindings.data(), static_cast<uint32_t>(set_layout_bindings.size()));
+	descriptor_set_layouts.composition = get_device().get_handle().createDescriptorSetLayout(descriptor_layout_create_info);
 
-	pipeline_layout_create_info = vkb::initializers::pipeline_layout_create_info(&descriptor_set_layouts.composition, 1);
-	VK_CHECK(vkCreatePipelineLayout(get_device().get_handle(), &pipeline_layout_create_info, nullptr, &pipeline_layouts.composition));
+	pipeline_layout_create_info  = vkb::initializers::pipeline_layout_create_info(&descriptor_set_layouts.composition, 1);
+	pipeline_layouts.composition = get_device().get_handle().createPipelineLayout(pipeline_layout_create_info);
 }
 
 void HDR::setup_descriptor_sets()
 {
-	VkDescriptorSetAllocateInfo alloc_info =
+	vk::DescriptorSetAllocateInfo alloc_info =
 	    vkb::initializers::descriptor_set_allocate_info(
 	        descriptor_pool,
 	        &descriptor_set_layouts.models,
 	        1);
 
 	// 3D object descriptor set
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &descriptor_sets.object));
+	descriptor_sets.object = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
-	VkDescriptorBufferInfo            matrix_buffer_descriptor     = create_descriptor(*uniform_buffers.matrices);
-	VkDescriptorImageInfo             environment_image_descriptor = create_descriptor(textures.envmap);
-	VkDescriptorBufferInfo            params_buffer_descriptor     = create_descriptor(*uniform_buffers.params);
-	std::vector<VkWriteDescriptorSet> write_descriptor_sets        = {
-        vkb::initializers::write_descriptor_set(descriptor_sets.object, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &matrix_buffer_descriptor),
-        vkb::initializers::write_descriptor_set(descriptor_sets.object, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &environment_image_descriptor),
-        vkb::initializers::write_descriptor_set(descriptor_sets.object, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, &params_buffer_descriptor),
-    };
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, NULL);
+	vk::DescriptorBufferInfo matrix_buffer_descriptor     = create_descriptor(*uniform_buffers.matrices);
+	vk::DescriptorImageInfo  environment_image_descriptor = create_descriptor(textures.envmap);
+	vk::DescriptorBufferInfo params_buffer_descriptor     = create_descriptor(*uniform_buffers.params);
 
 	// Sky box descriptor set
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &descriptor_sets.skybox));
+	descriptor_sets.skybox = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
 	matrix_buffer_descriptor     = create_descriptor(*uniform_buffers.matrices);
 	environment_image_descriptor = create_descriptor(textures.envmap);
 	params_buffer_descriptor     = create_descriptor(*uniform_buffers.params);
-	write_descriptor_sets        = {
-        vkb::initializers::write_descriptor_set(descriptor_sets.skybox, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &matrix_buffer_descriptor),
-        vkb::initializers::write_descriptor_set(descriptor_sets.skybox, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &environment_image_descriptor),
-        vkb::initializers::write_descriptor_set(descriptor_sets.skybox, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2, &params_buffer_descriptor),
-    };
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, NULL);
 
 	// Bloom filter
-	alloc_info = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layouts.bloom_filter, 1);
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &descriptor_sets.bloom_filter));
+	alloc_info                   = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layouts.bloom_filter, 1);
+	descriptor_sets.bloom_filter = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
-	std::vector<VkDescriptorImageInfo> color_descriptors = {
-	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[1].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+	std::vector<vk::DescriptorImageInfo> color_descriptors1 = {
+	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[0].view, vk::ImageLayout::eShaderReadOnlyOptimal),
+	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[1].view, vk::ImageLayout::eShaderReadOnlyOptimal),
 	};
-
-	write_descriptor_sets = {
-	    vkb::initializers::write_descriptor_set(descriptor_sets.bloom_filter, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &color_descriptors[0]),
-	    vkb::initializers::write_descriptor_set(descriptor_sets.bloom_filter, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &color_descriptors[1]),
-	};
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, NULL);
 
 	// Composition descriptor set
-	alloc_info = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layouts.composition, 1);
-	VK_CHECK(vkAllocateDescriptorSets(get_device().get_handle(), &alloc_info, &descriptor_sets.composition));
+	alloc_info                  = vkb::initializers::descriptor_set_allocate_info(descriptor_pool, &descriptor_set_layouts.composition, 1);
+	descriptor_sets.composition = get_device().get_handle().allocateDescriptorSets(alloc_info)[0];
 
-	color_descriptors = {
-	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
-	    vkb::initializers::descriptor_image_info(offscreen.sampler, filter_pass.color[0].view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL),
+	std::vector<vk::DescriptorImageInfo> color_descriptors2 = {
+	    vkb::initializers::descriptor_image_info(offscreen.sampler, offscreen.color[0].view, vk::ImageLayout::eShaderReadOnlyOptimal),
+	    vkb::initializers::descriptor_image_info(offscreen.sampler, filter_pass.color[0].view, vk::ImageLayout::eShaderReadOnlyOptimal),
 	};
 
-	write_descriptor_sets = {
-	    vkb::initializers::write_descriptor_set(descriptor_sets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &color_descriptors[0]),
-	    vkb::initializers::write_descriptor_set(descriptor_sets.composition, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, &color_descriptors[1]),
+	std::vector<vk::WriteDescriptorSet> write_descriptor_sets = {
+	    vkb::initializers::write_descriptor_set(descriptor_sets.object, vk::DescriptorType::eUniformBuffer, 0, &matrix_buffer_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.object, vk::DescriptorType::eCombinedImageSampler, 1, &environment_image_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.object, vk::DescriptorType::eUniformBuffer, 2, &params_buffer_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.skybox, vk::DescriptorType::eUniformBuffer, 0, &matrix_buffer_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.skybox, vk::DescriptorType::eCombinedImageSampler, 1, &environment_image_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.skybox, vk::DescriptorType::eUniformBuffer, 2, &params_buffer_descriptor),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.bloom_filter, vk::DescriptorType::eCombinedImageSampler, 0, &color_descriptors1[0]),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.bloom_filter, vk::DescriptorType::eCombinedImageSampler, 1, &color_descriptors1[1]),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.composition, vk::DescriptorType::eCombinedImageSampler, 0, &color_descriptors2[0]),
+	    vkb::initializers::write_descriptor_set(descriptor_sets.composition, vk::DescriptorType::eCombinedImageSampler, 1, &color_descriptors2[1]),
 	};
-	vkUpdateDescriptorSets(get_device().get_handle(), static_cast<uint32_t>(write_descriptor_sets.size()), write_descriptor_sets.data(), 0, NULL);
+	get_device().get_handle().updateDescriptorSets(write_descriptor_sets, nullptr);
 }
 
 void HDR::prepare_pipelines()
 {
-	VkPipelineInputAssemblyStateCreateInfo input_assembly_state =
-	    vkb::initializers::pipeline_input_assembly_state_create_info(
-	        VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-	        0,
-	        VK_FALSE);
+	vk::PipelineInputAssemblyStateCreateInfo input_assembly_state =
+	    vkb::initializers::pipeline_input_assembly_state_create_info();
 
-	VkPipelineRasterizationStateCreateInfo rasterization_state =
-	    vkb::initializers::pipeline_rasterization_state_create_info(
-	        VK_POLYGON_MODE_FILL,
-	        VK_CULL_MODE_BACK_BIT,
-	        VK_FRONT_FACE_COUNTER_CLOCKWISE,
-	        0);
+	vk::PipelineRasterizationStateCreateInfo rasterization_state =
+	    vkb::initializers::pipeline_rasterization_state_create_info();
 
-	VkPipelineColorBlendAttachmentState blend_attachment_state =
-	    vkb::initializers::pipeline_color_blend_attachment_state(
-	        0xf,
-	        VK_FALSE);
+	vk::PipelineColorBlendAttachmentState blend_attachment_state =
+	    vkb::initializers::pipeline_color_blend_attachment_state();
 
-	VkPipelineColorBlendStateCreateInfo color_blend_state =
+	vk::PipelineColorBlendStateCreateInfo color_blend_state =
 	    vkb::initializers::pipeline_color_blend_state_create_info(
 	        1,
 	        &blend_attachment_state);
 
 	// Note: Using Reversed depth-buffer for increased precision, so Greater depth values are kept
-	VkPipelineDepthStencilStateCreateInfo depth_stencil_state =
+	vk::PipelineDepthStencilStateCreateInfo depth_stencil_state =
 	    vkb::initializers::pipeline_depth_stencil_state_create_info(
 	        VK_FALSE,
 	        VK_FALSE,
-	        VK_COMPARE_OP_GREATER);
+	        vk::CompareOp::eGreater);
 
-	VkPipelineViewportStateCreateInfo viewport_state =
-	    vkb::initializers::pipeline_viewport_state_create_info(1, 1, 0);
+	vk::PipelineViewportStateCreateInfo viewport_state =
+	    vkb::initializers::pipeline_viewport_state_create_info();
 
-	VkPipelineMultisampleStateCreateInfo multisample_state =
-	    vkb::initializers::pipeline_multisample_state_create_info(
-	        VK_SAMPLE_COUNT_1_BIT,
-	        0);
+	vk::PipelineMultisampleStateCreateInfo multisample_state =
+	    vkb::initializers::pipeline_multisample_state_create_info();
 
-	std::vector<VkDynamicState> dynamic_state_enables = {
-	    VK_DYNAMIC_STATE_VIEWPORT,
-	    VK_DYNAMIC_STATE_SCISSOR};
-	VkPipelineDynamicStateCreateInfo dynamic_state =
-	    vkb::initializers::pipeline_dynamic_state_create_info(
-	        dynamic_state_enables.data(),
-	        static_cast<uint32_t>(dynamic_state_enables.size()),
-	        0);
+	std::vector<vk::DynamicState> dynamic_state_enables = {
+	    vk::DynamicState::eViewport,
+	    vk::DynamicState::eScissor,
+	};
+	vk::PipelineDynamicStateCreateInfo dynamic_state =
+	    vkb::initializers::pipeline_dynamic_state_create_info(dynamic_state_enables);
 
-	VkGraphicsPipelineCreateInfo pipeline_create_info =
+	vk::GraphicsPipelineCreateInfo pipeline_create_info =
 	    vkb::initializers::pipeline_create_info(
 	        pipeline_layouts.models,
-	        render_pass,
-	        0);
+	        render_pass);
 
-	std::vector<VkPipelineColorBlendAttachmentState> blend_attachment_states = {
-	    vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
-	    vkb::initializers::pipeline_color_blend_attachment_state(0xf, VK_FALSE),
+	std::vector<vk::PipelineColorBlendAttachmentState> blend_attachment_states = {
+	    vkb::initializers::pipeline_color_blend_attachment_state(),
+	    vkb::initializers::pipeline_color_blend_attachment_state(),
 	};
 
 	pipeline_create_info.pInputAssemblyState = &input_assembly_state;
@@ -711,41 +690,41 @@ void HDR::prepare_pipelines()
 	pipeline_create_info.pDepthStencilState  = &depth_stencil_state;
 	pipeline_create_info.pDynamicState       = &dynamic_state;
 
-	std::array<VkPipelineShaderStageCreateInfo, 2> shader_stages;
+	std::array<vk::PipelineShaderStageCreateInfo, 2> shader_stages;
 	pipeline_create_info.stageCount = static_cast<uint32_t>(shader_stages.size());
 	pipeline_create_info.pStages    = shader_stages.data();
 
-	VkSpecializationInfo                    specialization_info;
-	std::array<VkSpecializationMapEntry, 1> specialization_map_entries;
+	vk::SpecializationInfo                    specialization_info;
+	std::array<vk::SpecializationMapEntry, 1> specialization_map_entries;
 
 	// Full screen pipelines
 
 	// Empty vertex input state, full screen triangles are generated by the vertex shader
-	VkPipelineVertexInputStateCreateInfo empty_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
-	pipeline_create_info.pVertexInputState                 = &empty_input_state;
+	vk::PipelineVertexInputStateCreateInfo empty_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
+	pipeline_create_info.pVertexInputState                   = &empty_input_state;
 
 	// Final fullscreen composition pass pipeline
-	shader_stages[0]                  = load_shader("hdr/composition.vert", VK_SHADER_STAGE_VERTEX_BIT);
-	shader_stages[1]                  = load_shader("hdr/composition.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shader_stages[0]                  = load_shader("hdr/composition.vert", vk::ShaderStageFlagBits::eVertex);
+	shader_stages[1]                  = load_shader("hdr/composition.frag", vk::ShaderStageFlagBits::eFragment);
 	pipeline_create_info.layout       = pipeline_layouts.composition;
 	pipeline_create_info.renderPass   = render_pass;
-	rasterization_state.cullMode      = VK_CULL_MODE_FRONT_BIT;
+	rasterization_state.cullMode      = vk::CullModeFlagBits::eFront;
 	color_blend_state.attachmentCount = 1;
 	color_blend_state.pAttachments    = blend_attachment_states.data();
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipelines.composition));
+	pipelines.composition             = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 
 	// Bloom pass
-	shader_stages[0]                           = load_shader("hdr/bloom.vert", VK_SHADER_STAGE_VERTEX_BIT);
-	shader_stages[1]                           = load_shader("hdr/bloom.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shader_stages[0]                           = load_shader("hdr/bloom.vert", vk::ShaderStageFlagBits::eVertex);
+	shader_stages[1]                           = load_shader("hdr/bloom.frag", vk::ShaderStageFlagBits::eFragment);
 	color_blend_state.pAttachments             = &blend_attachment_state;
-	blend_attachment_state.colorWriteMask      = 0xF;
+	blend_attachment_state.colorWriteMask      = vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB | vk::ColorComponentFlagBits::eA;
 	blend_attachment_state.blendEnable         = VK_TRUE;
-	blend_attachment_state.colorBlendOp        = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	blend_attachment_state.dstColorBlendFactor = VK_BLEND_FACTOR_ONE;
-	blend_attachment_state.alphaBlendOp        = VK_BLEND_OP_ADD;
-	blend_attachment_state.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
-	blend_attachment_state.dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
+	blend_attachment_state.colorBlendOp        = vk::BlendOp::eAdd;
+	blend_attachment_state.srcColorBlendFactor = vk::BlendFactor::eOne;
+	blend_attachment_state.dstColorBlendFactor = vk::BlendFactor::eOne;
+	blend_attachment_state.alphaBlendOp        = vk::BlendOp::eAdd;
+	blend_attachment_state.srcAlphaBlendFactor = vk::BlendFactor::eSrcAlpha;
+	blend_attachment_state.dstAlphaBlendFactor = vk::BlendFactor::eDstAlpha;
 
 	// Set constant parameters via specialization constants
 	specialization_map_entries[0]        = vkb::initializers::specialization_map_entry(0, 0, sizeof(uint32_t));
@@ -753,34 +732,34 @@ void HDR::prepare_pipelines()
 	specialization_info                  = vkb::initializers::specialization_info(1, specialization_map_entries.data(), sizeof(dir), &dir);
 	shader_stages[1].pSpecializationInfo = &specialization_info;
 
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipelines.bloom[0]));
+	pipelines.bloom[0] = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 
 	// Second blur pass (into separate framebuffer)
 	pipeline_create_info.renderPass = filter_pass.render_pass;
 	dir                             = 0;
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipelines.bloom[1]));
+	pipelines.bloom[1]              = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 
 	// Object rendering pipelines
-	rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
+	rasterization_state.cullMode = vk::CullModeFlagBits::eBack;
 
 	// Vertex bindings an attributes for model rendering
 	// Binding description
-	std::vector<VkVertexInputBindingDescription> vertex_input_bindings = {
-	    vkb::initializers::vertex_input_binding_description(0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX),
+	std::vector<vk::VertexInputBindingDescription> vertex_input_bindings = {
+	    vkb::initializers::vertex_input_binding_description(0, sizeof(Vertex)),
 	};
 
 	// Attribute descriptions
-	std::vector<VkVertexInputAttributeDescription> vertex_input_attributes = {
-	    vkb::initializers::vertex_input_attribute_description(0, 0, VK_FORMAT_R32G32B32_SFLOAT, 0),                        // Position
-	    vkb::initializers::vertex_input_attribute_description(0, 1, VK_FORMAT_R32G32B32_SFLOAT, sizeof(float) * 3),        // Normal
-	    vkb::initializers::vertex_input_attribute_description(0, 2, VK_FORMAT_R32G32_SFLOAT, sizeof(float) * 6),           // UV
+	std::vector<vk::VertexInputAttributeDescription> vertex_input_attributes = {
+	    vkb::initializers::vertex_input_attribute_description(0, 0, vk::Format::eR32G32B32Sfloat, 0),                        // Position
+	    vkb::initializers::vertex_input_attribute_description(0, 1, vk::Format::eR32G32B32Sfloat, sizeof(float) * 3),        // Normal
+	    vkb::initializers::vertex_input_attribute_description(0, 2, vk::Format::eR32G32Sfloat, sizeof(float) * 6),           // UV
 	};
 
-	VkPipelineVertexInputStateCreateInfo vertex_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
-	vertex_input_state.vertexBindingDescriptionCount        = static_cast<uint32_t>(vertex_input_bindings.size());
-	vertex_input_state.pVertexBindingDescriptions           = vertex_input_bindings.data();
-	vertex_input_state.vertexAttributeDescriptionCount      = static_cast<uint32_t>(vertex_input_attributes.size());
-	vertex_input_state.pVertexAttributeDescriptions         = vertex_input_attributes.data();
+	vk::PipelineVertexInputStateCreateInfo vertex_input_state = vkb::initializers::pipeline_vertex_input_state_create_info();
+	vertex_input_state.vertexBindingDescriptionCount          = static_cast<uint32_t>(vertex_input_bindings.size());
+	vertex_input_state.pVertexBindingDescriptions             = vertex_input_bindings.data();
+	vertex_input_state.vertexAttributeDescriptionCount        = static_cast<uint32_t>(vertex_input_attributes.size());
+	vertex_input_state.pVertexAttributeDescriptions           = vertex_input_attributes.data();
 
 	pipeline_create_info.pVertexInputState = &vertex_input_state;
 
@@ -791,8 +770,8 @@ void HDR::prepare_pipelines()
 	color_blend_state.attachmentCount  = 2;
 	color_blend_state.pAttachments     = blend_attachment_states.data();
 
-	shader_stages[0] = load_shader("hdr/gbuffer.vert", VK_SHADER_STAGE_VERTEX_BIT);
-	shader_stages[1] = load_shader("hdr/gbuffer.frag", VK_SHADER_STAGE_FRAGMENT_BIT);
+	shader_stages[0] = load_shader("hdr/gbuffer.vert", vk::ShaderStageFlagBits::eVertex);
+	shader_stages[1] = load_shader("hdr/gbuffer.frag", vk::ShaderStageFlagBits::eFragment);
 
 	// Set constant parameters via specialization constants
 	specialization_map_entries[0]        = vkb::initializers::specialization_map_entry(0, 0, sizeof(uint32_t));
@@ -801,7 +780,7 @@ void HDR::prepare_pipelines()
 	shader_stages[0].pSpecializationInfo = &specialization_info;
 	shader_stages[1].pSpecializationInfo = &specialization_info;
 
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipelines.skybox));
+	pipelines.skybox = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 
 	// Object rendering pipeline
 	shadertype = 1;
@@ -810,8 +789,8 @@ void HDR::prepare_pipelines()
 	depth_stencil_state.depthWriteEnable = VK_TRUE;
 	depth_stencil_state.depthTestEnable  = VK_TRUE;
 	// Flip cull mode
-	rasterization_state.cullMode = VK_CULL_MODE_FRONT_BIT;
-	VK_CHECK(vkCreateGraphicsPipelines(get_device().get_handle(), pipeline_cache, 1, &pipeline_create_info, nullptr, &pipelines.reflect));
+	rasterization_state.cullMode = vk::CullModeFlagBits::eFront;
+	pipelines.reflect            = get_device().get_handle().createGraphicsPipeline(pipeline_cache, pipeline_create_info);
 }
 
 // Prepare and initialize uniform buffer containing shader uniforms
@@ -820,14 +799,14 @@ void HDR::prepare_uniform_buffers()
 	// Matrices vertex shader uniform buffer
 	uniform_buffers.matrices = std::make_unique<vkb::core::Buffer>(get_device(),
 	                                                               sizeof(ubo_vs),
-	                                                               VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-	                                                               VMA_MEMORY_USAGE_CPU_TO_GPU);
+	                                                               vk::BufferUsageFlagBits::eUniformBuffer,
+	                                                               vma::MemoryUsage::eCpuToGpu);
 
 	// Params
 	uniform_buffers.params = std::make_unique<vkb::core::Buffer>(get_device(),
 	                                                             sizeof(ubo_params),
-	                                                             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-	                                                             VMA_MEMORY_USAGE_CPU_TO_GPU);
+	                                                             vk::BufferUsageFlagBits::eUniformBuffer,
+	                                                             vma::MemoryUsage::eCpuToGpu);
 
 	update_uniform_buffers();
 	update_params();
@@ -851,7 +830,7 @@ void HDR::draw()
 	ApiVulkanSample::prepare_frame();
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers    = &draw_cmd_buffers[current_buffer];
-	VK_CHECK(vkQueueSubmit(queue, 1, &submit_info, VK_NULL_HANDLE));
+	queue.submit(submit_info, nullptr);
 	ApiVulkanSample::submit_frame();
 }
 

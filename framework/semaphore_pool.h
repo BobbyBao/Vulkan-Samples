@@ -39,7 +39,7 @@ class SemaphorePool
 
 	SemaphorePool &operator=(SemaphorePool &&) = delete;
 
-	VkSemaphore request_semaphore();
+	vk::Semaphore request_semaphore();
 
 	void reset();
 
@@ -48,7 +48,7 @@ class SemaphorePool
   private:
 	Device &device;
 
-	std::vector<VkSemaphore> semaphores;
+	std::vector<vk::Semaphore> semaphores;
 
 	uint32_t active_semaphore_count{0};
 };

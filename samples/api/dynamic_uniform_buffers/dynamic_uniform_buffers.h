@@ -22,7 +22,7 @@
  * with respect to the alignment reported by the device via minUniformBufferOffsetAlignment that
  * contains all matrices for the objects in the scene.
  *
- * The used descriptor type VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC then allows to set a dynamic
+ * The used descriptor type vk::DescriptorType::eUniformBufferDynamic then allows to set a dynamic
  * offset used to pass data from the single uniform buffer to the connected shader binding point.
  */
 
@@ -72,10 +72,10 @@ class DynamicUniformBuffers : public ApiVulkanSample
 		glm::mat4 *model = nullptr;
 	} ubo_data_dynamic;
 
-	VkPipeline            pipeline;
-	VkPipelineLayout      pipeline_layout;
-	VkDescriptorSet       descriptor_set;
-	VkDescriptorSetLayout descriptor_set_layout;
+	vk::Pipeline            pipeline;
+	vk::PipelineLayout      pipeline_layout;
+	vk::DescriptorSet       descriptor_set;
+	vk::DescriptorSetLayout descriptor_set_layout;
 
 	float animation_timer = 0.0f;
 

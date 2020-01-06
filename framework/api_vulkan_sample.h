@@ -49,8 +49,8 @@
  */
 struct SwapchainBuffer
 {
-	VkImage     image;
-	VkImageView view;
+	vk::Image     image;
+	vk::ImageView view;
 };
 
 /**
@@ -59,7 +59,7 @@ struct SwapchainBuffer
 struct Texture
 {
 	std::unique_ptr<vkb::sg::Image> image;
-	VkSampler                       sampler;
+	vk::Sampler                     sampler;
 };
 
 /**
@@ -115,53 +115,53 @@ class ApiVulkanSample : public vkb::VulkanSample
 	virtual void prepare_render_context() override;
 
 	// Handle to the device graphics queue that command buffers are submitted to
-	VkQueue queue;
+	vk::Queue queue;
 
 	// Depth buffer format (selected during Vulkan initialization)
-	VkFormat depth_format;
+	vk::Format depth_format;
 
 	// Command buffer pool
-	VkCommandPool cmd_pool;
+	vk::CommandPool cmd_pool;
 
 	/** @brief Pipeline stages used to wait at for graphics queue submissions */
-	VkPipelineStageFlags submit_pipeline_stages = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	vk::PipelineStageFlags submit_pipeline_stages = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 
 	// Contains command buffers and semaphores to be presented to the queue
-	VkSubmitInfo submit_info;
+	vk::SubmitInfo submit_info;
 
 	// Command buffers used for rendering
-	std::vector<VkCommandBuffer> draw_cmd_buffers;
+	std::vector<vk::CommandBuffer> draw_cmd_buffers;
 
 	// Global render pass for frame buffer writes
-	VkRenderPass render_pass;
+	vk::RenderPass render_pass;
 
 	// List of available frame buffers (same as number of swap chain images)
-	std::vector<VkFramebuffer> framebuffers;
+	std::vector<vk::Framebuffer> framebuffers;
 
 	// Active frame buffer index
 	uint32_t current_buffer = 0;
 
 	// Descriptor set pool
-	VkDescriptorPool descriptor_pool = VK_NULL_HANDLE;
+	vk::DescriptorPool descriptor_pool;
 
 	// List of shader modules created (stored for cleanup)
-	std::vector<VkShaderModule> shader_modules;
+	std::vector<vk::ShaderModule> shader_modules;
 
 	// Pipeline cache object
-	VkPipelineCache pipeline_cache;
+	vk::PipelineCache pipeline_cache;
 
 	// Synchronization semaphores
 	struct
 	{
 		// Swap chain image presentation
-		VkSemaphore acquired_image_ready;
+		vk::Semaphore acquired_image_ready;
 
 		// Command buffer submission and execution
-		VkSemaphore render_complete;
+		vk::Semaphore render_complete;
 	} semaphores;
 
 	// Synchronization fences
-	std::vector<VkFence> wait_fences;
+	std::vector<vk::Fence> wait_fences;
 
 	/**
 	 * @brief Populates the swapchain_buffers vector with the image and imageviews 
@@ -176,14 +176,20 @@ class ApiVulkanSample : public vkb::VulkanSample
 	 * @param size The size of the descriptor (default: VK_WHOLE_SIZE)
 	 * @param offset The offset of the descriptor (default: 0)
 	 */
-	VkDescriptorBufferInfo create_descriptor(vkb::core::Buffer &buffer, VkDeviceSize size = VK_WHOLE_SIZE, VkDeviceSize offset = 0);
+	vk::DescriptorBufferInfo create_descriptor(vkb::core::Buffer &buffer, vk::DeviceSize size = VK_WHOLE_SIZE, vk::DeviceSize offset = 0);
 
 	/**
 	 * @brief Creates an image descriptor
 	 * @param texture The texture from which to create the descriptor from
-	 * @param descriptor_type The type of image descriptor (default: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER)
+	 * @param descriptor_type The type of image descriptor (default: vk::DescriptorType::eCombinedImageSampler)
 	 */
-	VkDescriptorImageInfo create_descriptor(Texture &texture, VkDescriptorType descriptor_type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+	vk::DescriptorImageInfo create_descriptor(Texture &texture, vk::DescriptorType descriptor_type = vk::DescriptorType::eCombinedImageSampler);
+
+	/**
+	 * @brief Loads in a ktx 2D texture
+	 * @param file The filename of the texture to load
+	 */
+	Texture load_texture(const std::string &file, vk::ImageViewType image_view_type, const vk::ImageCreateFlags& flags = {});
 
 	/**
 	 * @brief Loads in a ktx 2D texture
@@ -215,7 +221,7 @@ class ApiVulkanSample : public vkb::VulkanSample
 	 * @param model The model to draw
 	 * @param command_buffer The command buffer to record to
 	 */
-	void draw_model(std::unique_ptr<vkb::sg::SubMesh> &model, VkCommandBuffer command_buffer);
+	void draw_model(const std::unique_ptr<vkb::sg::SubMesh> &model, vk::CommandBuffer command_buffer);
 
   public:
 	/**
@@ -235,7 +241,13 @@ class ApiVulkanSample : public vkb::VulkanSample
 	 * @brief To be overridden by the derived class. Records the relevant commands to the rendering command buffers
 	 *        Called when the framebuffers need to be rebuilt
 	 */
-	virtual void build_command_buffers() = 0;
+	virtual void update_draw_command_buffer(const vk::CommandBuffer &command_buffer);
+
+	/**
+	 * @brief To be overridden by the derived class. Records the relevant commands to the rendering command buffers
+	 *        Called when the framebuffers need to be rebuilt
+	 */
+	virtual void build_command_buffers();
 
 	/**
 	 * @brief Creates the fences for rendering
@@ -289,7 +301,7 @@ class ApiVulkanSample : public vkb::VulkanSample
 	 * @param file The file location of the shader relative to the shaders folder
 	 * @param stage The shader stage
 	 */
-	VkPipelineShaderStageCreateInfo load_shader(const std::string &file, VkShaderStageFlagBits stage);
+	vk::PipelineShaderStageCreateInfo load_shader(const std::string &file, vk::ShaderStageFlagBits stage);
 
 	/**
 	 * @brief Updates the overlay 
@@ -301,7 +313,7 @@ class ApiVulkanSample : public vkb::VulkanSample
 	 * @brief If the gui is enabled, then record the drawing commands to a command buffer
 	 * @param command_buffer A valid command buffer that is ready to be recorded to
 	 */
-	void draw_ui(const VkCommandBuffer command_buffer);
+	void draw_ui(const vk::CommandBuffer command_buffer);
 
 	/**
 	 * @brief Prepare the frame for workload submission, acquires the next image from the swap chain and 
@@ -332,7 +344,7 @@ class ApiVulkanSample : public vkb::VulkanSample
 
 #if defined(VKB_DEBUG) || defined(VKB_VALIDATION_LAYERS)
 	/// The debug report callback
-	VkDebugReportCallbackEXT debug_report_callback{VK_NULL_HANDLE};
+	vk::DebugReportCallbackEXT debug_report_callback;
 #endif
 
   public:
@@ -349,7 +361,7 @@ class ApiVulkanSample : public vkb::VulkanSample
 		bool vsync = false;
 	} settings;
 
-	VkClearColorValue default_clear_color = {{0.025f, 0.025f, 0.025f, 1.0f}};
+	vk::ClearColorValue default_clear_color{std::array<float, 4>{{0.025f, 0.025f, 0.025f, 1.0f}}};
 
 	float zoom = 0;
 
@@ -378,9 +390,9 @@ class ApiVulkanSample : public vkb::VulkanSample
 
 	struct
 	{
-		VkImage        image;
-		VkDeviceMemory mem;
-		VkImageView    view;
+		vk::Image        image;
+		vk::DeviceMemory mem;
+		vk::ImageView    view;
 	} depth_stencil;
 
 	struct

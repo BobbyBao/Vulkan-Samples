@@ -31,7 +31,7 @@ DescriptorPool::DescriptorPool(Device &                   device,
 {
 	const auto &bindings = descriptor_set_layout.get_bindings();
 
-	std::map<VkDescriptorType, std::uint32_t> descriptor_type_counts;
+	std::map<vk::DescriptorType, std::uint32_t> descriptor_type_counts;
 
 	// Count each type of descriptor set
 	for (auto &binding : bindings)
@@ -62,7 +62,7 @@ DescriptorPool::~DescriptorPool()
 	// Destroy all descriptor pools
 	for (auto pool : pools)
 	{
-		vkDestroyDescriptorPool(device.get_handle(), pool, nullptr);
+		device.get_handle().destroy(pool);
 	}
 }
 
@@ -71,7 +71,7 @@ void DescriptorPool::reset()
 	// Reset all descriptor pools
 	for (auto pool : pools)
 	{
-		vkResetDescriptorPool(device.get_handle(), pool, 0);
+		device.get_handle().resetDescriptorPool(pool, {});
 	}
 
 	// Clear internal tracking of descriptor set allocations
@@ -93,33 +93,23 @@ void DescriptorPool::set_descriptor_set_layout(const DescriptorSetLayout &set_la
 	descriptor_set_layout = &set_layout;
 }
 
-VkDescriptorSet DescriptorPool::allocate()
+vk::DescriptorSet DescriptorPool::allocate()
 {
 	pool_index = find_available_pool(pool_index);
 
 	// Increment allocated set count for the current pool
 	++pool_sets_count[pool_index];
 
-	VkDescriptorSetLayout set_layout = get_descriptor_set_layout().get_handle();
+	vk::DescriptorSetLayout set_layout = get_descriptor_set_layout().get_handle();
 
-	VkDescriptorSetAllocateInfo allocInfo{VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
+	vk::DescriptorSetAllocateInfo allocInfo;
 
 	allocInfo.descriptorPool     = pools[pool_index];
 	allocInfo.descriptorSetCount = 1;
 	allocInfo.pSetLayouts        = &set_layout;
 
-	VkDescriptorSet handle = VK_NULL_HANDLE;
-
 	// Allocate a new descriptor set from the current pool
-	auto result = vkAllocateDescriptorSets(device.get_handle(), &allocInfo, &handle);
-
-	if (result != VK_SUCCESS)
-	{
-		// Decrement allocated set count for the current pool
-		--pool_sets_count[pool_index];
-
-		return VK_NULL_HANDLE;
-	}
+	vk::DescriptorSet handle = device.get_handle().allocateDescriptorSets(allocInfo)[0];
 
 	// Store mapping between the descriptor set and the pool
 	set_pool_mapping.emplace(handle, pool_index);
@@ -127,20 +117,20 @@ VkDescriptorSet DescriptorPool::allocate()
 	return handle;
 }
 
-VkResult DescriptorPool::free(VkDescriptorSet descriptor_set)
+vk::Result DescriptorPool::free(vk::DescriptorSet descriptor_set)
 {
 	// Get the pool index of the descriptor set
 	auto it = set_pool_mapping.find(descriptor_set);
 
 	if (it == set_pool_mapping.end())
 	{
-		return VK_INCOMPLETE;
+		return vk::Result::eIncomplete;
 	}
 
 	auto desc_pool_index = it->second;
 
 	// Free descriptor set from the pool
-	vkFreeDescriptorSets(device.get_handle(), pools[desc_pool_index], 1, &descriptor_set);
+	device.get_handle().freeDescriptorSets(pools[desc_pool_index], descriptor_set);
 
 	// Remove descriptor set mapping to the pool
 	set_pool_mapping.erase(it);
@@ -151,7 +141,7 @@ VkResult DescriptorPool::free(VkDescriptorSet descriptor_set)
 	// Change the current pool index to use the available pool
 	pool_index = desc_pool_index;
 
-	return VK_SUCCESS;
+	return vk::Result::eSuccess;
 }
 
 std::uint32_t DescriptorPool::find_available_pool(std::uint32_t search_index)
@@ -159,26 +149,18 @@ std::uint32_t DescriptorPool::find_available_pool(std::uint32_t search_index)
 	// Create a new pool
 	if (pools.size() <= search_index)
 	{
-		VkDescriptorPoolCreateInfo create_info{VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};
+		vk::DescriptorPoolCreateInfo create_info;
 
 		// We do not set FREE_DESCRIPTOR_SET_BIT as we do not need to free individual descriptor sets
-		create_info.flags         = 0;
 		create_info.poolSizeCount = to_u32(pool_sizes.size());
 		create_info.pPoolSizes    = pool_sizes.data();
 		create_info.maxSets       = pool_max_sets;
 
-		VkDescriptorPool handle = VK_NULL_HANDLE;
+		vk::DescriptorPool handle;
 
 		// Create the Vulkan descriptor pool
-		auto result = vkCreateDescriptorPool(device.get_handle(), &create_info, nullptr, &handle);
-
-		if (result != VK_SUCCESS)
-		{
-			return VK_NULL_HANDLE;
-		}
-
 		// Store internally the Vulkan handle
-		pools.push_back(handle);
+		pools.push_back(device.get_handle().createDescriptorPool(create_info));
 
 		// Add set count for the descriptor pool
 		pool_sets_count.push_back(0);

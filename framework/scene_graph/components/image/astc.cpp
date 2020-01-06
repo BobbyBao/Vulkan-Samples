@@ -36,51 +36,51 @@ namespace vkb
 {
 namespace sg
 {
-BlockDim to_blockdim(const VkFormat format)
+BlockDim to_blockdim(const vk::Format format)
 {
 	switch (format)
 	{
-		case VK_FORMAT_ASTC_4x4_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_4x4_SRGB_BLOCK:
+		case vk::Format::eAstc4x4UnormBlock:
+		case vk::Format::eAstc4x4SrgbBlock:
 			return {4, 4, 1};
-		case VK_FORMAT_ASTC_5x4_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_5x4_SRGB_BLOCK:
+		case vk::Format::eAstc5x4UnormBlock:
+		case vk::Format::eAstc5x4SrgbBlock:
 			return {5, 4, 1};
-		case VK_FORMAT_ASTC_5x5_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_5x5_SRGB_BLOCK:
+		case vk::Format::eAstc5x5UnormBlock:
+		case vk::Format::eAstc5x5SrgbBlock:
 			return {5, 5, 1};
-		case VK_FORMAT_ASTC_6x5_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_6x5_SRGB_BLOCK:
+		case vk::Format::eAstc6x5UnormBlock:
+		case vk::Format::eAstc6x5SrgbBlock:
 			return {6, 5, 1};
-		case VK_FORMAT_ASTC_6x6_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_6x6_SRGB_BLOCK:
+		case vk::Format::eAstc6x6UnormBlock:
+		case vk::Format::eAstc6x6SrgbBlock:
 			return {6, 6, 1};
-		case VK_FORMAT_ASTC_8x5_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_8x5_SRGB_BLOCK:
+		case vk::Format::eAstc8x5UnormBlock:
+		case vk::Format::eAstc8x5SrgbBlock:
 			return {8, 5, 1};
-		case VK_FORMAT_ASTC_8x6_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_8x6_SRGB_BLOCK:
+		case vk::Format::eAstc8x6UnormBlock:
+		case vk::Format::eAstc8x6SrgbBlock:
 			return {8, 6, 1};
-		case VK_FORMAT_ASTC_8x8_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_8x8_SRGB_BLOCK:
+		case vk::Format::eAstc8x8UnormBlock:
+		case vk::Format::eAstc8x8SrgbBlock:
 			return {8, 8, 1};
-		case VK_FORMAT_ASTC_10x5_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_10x5_SRGB_BLOCK:
+		case vk::Format::eAstc10x5UnormBlock:
+		case vk::Format::eAstc10x5SrgbBlock:
 			return {10, 5, 1};
-		case VK_FORMAT_ASTC_10x6_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_10x6_SRGB_BLOCK:
+		case vk::Format::eAstc10x6UnormBlock:
+		case vk::Format::eAstc10x6SrgbBlock:
 			return {10, 6, 1};
-		case VK_FORMAT_ASTC_10x8_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_10x8_SRGB_BLOCK:
+		case vk::Format::eAstc10x8UnormBlock:
+		case vk::Format::eAstc10x8SrgbBlock:
 			return {10, 8, 1};
-		case VK_FORMAT_ASTC_10x10_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_10x10_SRGB_BLOCK:
+		case vk::Format::eAstc10x10UnormBlock:
+		case vk::Format::eAstc10x10SrgbBlock:
 			return {10, 10, 1};
-		case VK_FORMAT_ASTC_12x10_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_12x10_SRGB_BLOCK:
+		case vk::Format::eAstc12x10UnormBlock:
+		case vk::Format::eAstc12x10SrgbBlock:
 			return {12, 10, 1};
-		case VK_FORMAT_ASTC_12x12_UNORM_BLOCK:
-		case VK_FORMAT_ASTC_12x12_SRGB_BLOCK:
+		case vk::Format::eAstc12x12UnormBlock:
+		case vk::Format::eAstc12x12SrgbBlock:
 			return {12, 12, 1};
 		default:
 			throw std::runtime_error{"Invalid astc format"};
@@ -113,7 +113,7 @@ void Astc::init()
 	}
 }
 
-void Astc::decode(BlockDim blockdim, VkExtent3D extent, const uint8_t *data_)
+void Astc::decode(BlockDim blockdim, vk::Extent3D extent, const uint8_t *data_)
 {
 	// Actual decoding
 	astc_decode_mode decode_mode = DECODE_LDR_SRGB;
@@ -168,7 +168,7 @@ void Astc::decode(BlockDim blockdim, VkExtent3D extent, const uint8_t *data_)
 	}
 
 	set_data(astc_image->imagedata8[0][0], astc_image->xsize * astc_image->ysize * astc_image->zsize * 4);
-	set_format(VK_FORMAT_R8G8B8A8_SRGB);
+	set_format(vk::Format::eR8G8B8A8Srgb);
 	set_width(static_cast<uint32_t>(astc_image->xsize));
 	set_height(static_cast<uint32_t>(astc_image->ysize));
 	set_depth(static_cast<uint32_t>(astc_image->zsize));
@@ -206,7 +206,7 @@ Astc::Astc(const std::string &name, const std::vector<uint8_t> &data) :
 	    /* ydim = */ header.blockdim_y,
 	    /* zdim = */ header.blockdim_z};
 
-	VkExtent3D extent = {
+	vk::Extent3D extent = {
 	    /* width  = */ static_cast<uint32_t>(header.xsize[0] + 256 * header.xsize[1] + 65536 * header.xsize[2]),
 	    /* height = */ static_cast<uint32_t>(header.ysize[0] + 256 * header.ysize[1] + 65536 * header.ysize[2]),
 	    /* depth  = */ static_cast<uint32_t>(header.zsize[0] + 256 * header.zsize[1] + 65536 * header.zsize[2])};

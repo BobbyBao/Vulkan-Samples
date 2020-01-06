@@ -32,15 +32,15 @@ FencePool::~FencePool()
 	reset();
 
 	// Destroy all fences
-	for (VkFence fence : fences)
+	for (auto &fence : fences)
 	{
-		vkDestroyFence(device.get_handle(), fence, nullptr);
+		device.get_handle().destroy(fence);
 	}
 
 	fences.clear();
 }
 
-VkFence FencePool::request_fence()
+vk::Fence FencePool::request_fence()
 {
 	// Check if there is an available fence
 	if (active_fence_count < fences.size())
@@ -48,16 +48,7 @@ VkFence FencePool::request_fence()
 		return fences.at(active_fence_count++);
 	}
 
-	VkFence fence{VK_NULL_HANDLE};
-
-	VkFenceCreateInfo create_info{VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
-
-	VkResult result = vkCreateFence(device.get_handle(), &create_info, nullptr, &fence);
-
-	if (result != VK_SUCCESS)
-	{
-		throw std::runtime_error("Failed to create fence.");
-	}
+	vk::Fence fence = device.get_handle().createFence({});
 
 	fences.push_back(fence);
 
@@ -66,32 +57,33 @@ VkFence FencePool::request_fence()
 	return fences.back();
 }
 
-VkResult FencePool::wait(uint32_t timeout) const
+vk::Result FencePool::wait(uint32_t timeout) const
 {
 	if (active_fence_count < 1 || fences.empty())
 	{
-		return VK_SUCCESS;
+		return vk::Result::eSuccess;
 	}
 
-	return vkWaitForFences(device.get_handle(), active_fence_count, fences.data(), true, timeout);
+	auto result = device.get_handle().waitForFences(active_fence_count, fences.data(), VK_TRUE, timeout);
+	return result;
 }
 
-VkResult FencePool::reset()
+vk::Result FencePool::reset()
 {
 	if (active_fence_count < 1 || fences.empty())
 	{
-		return VK_SUCCESS;
+		return vk::Result::eSuccess;
 	}
 
-	VkResult result = vkResetFences(device.get_handle(), active_fence_count, fences.data());
+	vk::Result result = device.get_handle().resetFences(active_fence_count, fences.data());
 
-	if (result != VK_SUCCESS)
+	if (result != vk::Result::eSuccess)
 	{
 		return result;
 	}
 
 	active_fence_count = 0;
 
-	return VK_SUCCESS;
+	return result;
 }
 }        // namespace vkb

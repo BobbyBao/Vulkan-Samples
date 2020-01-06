@@ -38,21 +38,16 @@ PipelineCache::PipelineCache()
 
 PipelineCache::~PipelineCache()
 {
-	if (pipeline_cache != VK_NULL_HANDLE)
+	if (pipeline_cache)
 	{
-		/* Get size of pipeline cache */
-		size_t size{};
-		VK_CHECK(vkGetPipelineCacheData(device->get_handle(), pipeline_cache, &size, nullptr));
-
 		/* Get data of pipeline cache */
-		std::vector<uint8_t> data(size);
-		VK_CHECK(vkGetPipelineCacheData(device->get_handle(), pipeline_cache, &size, data.data()));
+		auto data = device->get_handle().getPipelineCacheData(pipeline_cache);
 
 		/* Write pipeline cache data to a file in binary format */
 		vkb::fs::write_temp(data, "pipeline_cache.data");
 
 		/* Destroy Vulkan pipeline cache */
-		vkDestroyPipelineCache(device->get_handle(), pipeline_cache, nullptr);
+		device->get_handle().destroy(pipeline_cache);
 	}
 
 	vkb::fs::write_temp(device->get_resource_cache().serialize(), "cache.data");
@@ -78,12 +73,12 @@ bool PipelineCache::prepare(vkb::Platform &platform)
 	}
 
 	/* Add initial pipeline cache data from the cached file */
-	VkPipelineCacheCreateInfo create_info{VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO};
+	vk::PipelineCacheCreateInfo create_info;
 	create_info.initialDataSize = pipeline_data.size();
 	create_info.pInitialData    = pipeline_data.data();
 
 	/* Create Vulkan pipeline cache */
-	VK_CHECK(vkCreatePipelineCache(device->get_handle(), &create_info, nullptr, &pipeline_cache));
+	pipeline_cache = device->get_handle().createPipelineCache(create_info);
 
 	vkb::ResourceCache &resource_cache = device->get_resource_cache();
 
@@ -146,7 +141,7 @@ void PipelineCache::draw_gui()
 			    else
 			    {
 				    // Don't use a pipeline cache
-				    resource_cache.set_pipeline_cache(VK_NULL_HANDLE);
+				    resource_cache.set_pipeline_cache(nullptr);
 			    }
 		    }
 

@@ -23,36 +23,34 @@ namespace vkb
 {
 namespace core
 {
-Buffer::Buffer(Device &device, VkDeviceSize size, VkBufferUsageFlags buffer_usage, VmaMemoryUsage memory_usage, VmaAllocationCreateFlags flags) :
+Buffer::Buffer(Device &device, vk::DeviceSize size, vk::BufferUsageFlags buffer_usage, vma::MemoryUsage memory_usage, vma::Allocation::CreateFlags flags) :
     device{device},
     size{size}
 {
 #ifdef VK_USE_PLATFORM_MACOS_MVK
 	// Workaround for Mac (MoltenVK requires unmapping https://github.com/KhronosGroup/MoltenVK/issues/175)
 	// Force cleares the flag VMA_ALLOCATION_CREATE_MAPPED_BIT
-	flags &= ~VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    flags &= ~vma::Allocation::CreateFlags{vma::Allocation::CreateFlagBits::eMapped};
 #endif
 
-	persistent = (flags & VMA_ALLOCATION_CREATE_MAPPED_BIT) != 0;
+	persistent = (flags & vma::Allocation::CreateFlagBits::eMapped).operator bool();
 
-	VkBufferCreateInfo buffer_info{VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
+	vk::BufferCreateInfo buffer_info;
 	buffer_info.usage = buffer_usage;
 	buffer_info.size  = size;
 
-	VmaAllocationCreateInfo memory_info{};
+	vma::Allocation::CreateInfo memory_info;
 	memory_info.flags = flags;
 	memory_info.usage = memory_usage;
 
-	VmaAllocationInfo allocation_info{};
-	auto              result = vmaCreateBuffer(device.get_memory_allocator(),
-                                  &buffer_info, &memory_info,
-                                  &handle, &allocation,
-                                  &allocation_info);
+	vma::AllocationInfo allocation_info;
 
-	if (result != VK_SUCCESS)
-	{
-		throw VulkanException{result, "Cannot create Buffer"};
-	}
+	device.get_memory_allocator().createBuffer(
+	    buffer_info,
+	    memory_info,
+	    *this,
+	    allocation,
+	    allocation_info);
 
 	memory = allocation_info.deviceMemory;
 
@@ -64,27 +62,30 @@ Buffer::Buffer(Device &device, VkDeviceSize size, VkBufferUsageFlags buffer_usag
 
 Buffer::Buffer(Buffer &&other) :
     device{other.device},
-    handle{other.handle},
     allocation{other.allocation},
     memory{other.memory},
     size{other.size},
     mapped_data{other.mapped_data},
     mapped{other.mapped}
 {
+	static_cast<vk::Buffer &>(*this) = static_cast<vk::Buffer &>(other);
 	// Reset other handles to avoid releasing on destruction
-	other.handle      = VK_NULL_HANDLE;
-	other.allocation  = VK_NULL_HANDLE;
-	other.memory      = VK_NULL_HANDLE;
-	other.mapped_data = nullptr;
-	other.mapped      = false;
+	static_cast<vk::Buffer &>(other) = nullptr;
+	other.allocation                 = nullptr;
+	other.memory                     = nullptr;
+	other.mapped_data                = nullptr;
+	other.mapped                     = false;
 }
 
 Buffer::~Buffer()
 {
-	if (handle != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE)
+	auto &self = static_cast<vk::Buffer &>(*this);
+	if (self && allocation)
 	{
 		unmap();
-		vmaDestroyBuffer(device.get_memory_allocator(), handle, allocation);
+        device.get_memory_allocator().destroyBuffer(self, allocation);
+        allocation = nullptr;
+        self = nullptr;
 	}
 }
 
@@ -93,14 +94,14 @@ const Device &Buffer::get_device() const
 	return device;
 }
 
-VkBuffer Buffer::get_handle() const
+const vk::Buffer &Buffer::get_handle() const
 {
-	return handle;
+	return static_cast<const vk::Buffer &>(*this);
 }
 
-const VkBuffer *Buffer::get() const
+const vk::Buffer *Buffer::get() const
 {
-	return &handle;
+	return static_cast<const vk::Buffer *>(this);
 }
 
 VmaAllocation Buffer::get_allocation() const
@@ -108,12 +109,12 @@ VmaAllocation Buffer::get_allocation() const
 	return allocation;
 }
 
-VkDeviceMemory Buffer::get_memory() const
+vk::DeviceMemory Buffer::get_memory() const
 {
 	return memory;
 }
 
-VkDeviceSize Buffer::get_size() const
+vk::DeviceSize Buffer::get_size() const
 {
 	return size;
 }
@@ -122,7 +123,7 @@ uint8_t *Buffer::map()
 {
 	if (!mapped && !mapped_data)
 	{
-		VK_CHECK(vmaMapMemory(device.get_memory_allocator(), allocation, reinterpret_cast<void **>(&mapped_data)));
+        mapped_data = (uint8_t*)allocation.mapMemory();
 		mapped = true;
 	}
 	return mapped_data;
@@ -132,7 +133,7 @@ void Buffer::unmap()
 {
 	if (mapped)
 	{
-		vmaUnmapMemory(device.get_memory_allocator(), allocation);
+        allocation.unmapMemory();
 		mapped_data = nullptr;
 		mapped      = false;
 	}
@@ -140,7 +141,7 @@ void Buffer::unmap()
 
 void Buffer::flush() const
 {
-	vmaFlushAllocation(device.get_memory_allocator(), allocation, 0, size);
+    allocation.flush(0, size);
 }
 
 void Buffer::update(const std::vector<uint8_t> &data, size_t offset)

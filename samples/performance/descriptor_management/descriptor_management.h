@@ -50,7 +50,7 @@ class DescriptorManagement : public vkb::VulkanSample
 	    0};
 
 	RadioButtonGroup buffer_allocation{
-	    "Single large VkBuffer",
+	    "Single large vk::Buffer",
 	    {"Disabled", "Enabled"},
 	    0};
 

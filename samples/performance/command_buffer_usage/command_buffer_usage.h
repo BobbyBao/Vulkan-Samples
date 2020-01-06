@@ -72,9 +72,9 @@ class CommandBufferUsage : public vkb::VulkanSample
 
 		void draw(vkb::CommandBuffer &primary_command_buffer) override;
 
-		void set_viewport(VkViewport &viewport);
+		void set_viewport(vk::Viewport &viewport);
 
-		void set_scissor(VkRect2D &scissor);
+		void set_scissor(vk::Rect2D &scissor);
 
 		float get_avg_draws_per_buffer() const;
 
@@ -106,9 +106,9 @@ class CommandBufferUsage : public vkb::VulkanSample
 		vkb::CommandBuffer *record_draw_secondary(vkb::CommandBuffer &primary_command_buffer, const std::vector<std::pair<vkb::sg::Node *, vkb::sg::SubMesh *>> &nodes,
 		                                          uint32_t mesh_start, uint32_t mesh_end, size_t thread_index = 0);
 
-		VkViewport viewport{};
+		vk::Viewport viewport;
 
-		VkRect2D scissor{};
+		vk::Rect2D scissor;
 
 		vkb::ColorBlendAttachmentState color_blend_attachment{};
 

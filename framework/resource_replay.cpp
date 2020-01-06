@@ -91,7 +91,7 @@ void ResourceReplay::play(ResourceCache &resource_cache, ResourceRecord &recorde
 
 void ResourceReplay::create_shader_module(ResourceCache &resource_cache, std::istringstream &stream)
 {
-	VkShaderStageFlagBits    stage{};
+	vk::ShaderStageFlagBits  stage;
 	std::vector<uint8_t>     glsl_code;
 	std::string              entry_point;
 	std::string              preamble;

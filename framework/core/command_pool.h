@@ -26,7 +26,7 @@ namespace vkb
 class Device;
 class RenderFrame;
 
-class CommandPool
+class CommandPool : public vk::CommandPool
 {
   public:
 	CommandPool(Device &device, uint32_t queue_family_index, RenderFrame *render_frame = nullptr,
@@ -47,22 +47,20 @@ class CommandPool
 
 	uint32_t get_queue_family_index() const;
 
-	VkCommandPool get_handle() const;
+	vk::CommandPool get_handle() const;
 
 	RenderFrame *get_render_frame();
 
 	size_t get_thread_index() const;
 
-	VkResult reset_pool();
+	vk::Result reset_pool();
 
-	CommandBuffer &request_command_buffer(VkCommandBufferLevel level = VK_COMMAND_BUFFER_LEVEL_PRIMARY);
+	CommandBuffer &request_command_buffer(vk::CommandBufferLevel level = vk::CommandBufferLevel::ePrimary);
 
 	const CommandBuffer::ResetMode get_reset_mode() const;
 
   private:
 	Device &device;
-
-	VkCommandPool handle{VK_NULL_HANDLE};
 
 	RenderFrame *render_frame{nullptr};
 
@@ -80,6 +78,6 @@ class CommandPool
 
 	CommandBuffer::ResetMode reset_mode{CommandBuffer::ResetMode::ResetPool};
 
-	VkResult reset_command_buffers();
+	vk::Result reset_command_buffers();
 };
 }        // namespace vkb

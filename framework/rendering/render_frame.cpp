@@ -29,13 +29,15 @@ RenderFrame::RenderFrame(Device &device, RenderTarget &&render_target, size_t th
     swapchain_render_target{std::move(render_target)},
     thread_count{thread_count}
 {
-	const std::vector<VkBufferUsageFlags> supported_usages = {VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_BUFFER_USAGE_INDEX_BUFFER_BIT};
+	const std::vector<vk::BufferUsageFlags> supported_usages = {vk::BufferUsageFlagBits::eUniformBuffer, vk::BufferUsageFlagBits::eVertexBuffer, vk::BufferUsageFlagBits::eIndexBuffer};
 	for (auto &usage : supported_usages)
 	{
 		std::vector<std::pair<BufferPool, BufferBlock *>> usage_buffer_pools;
 		for (size_t i = 0; i < thread_count; i++)
 		{
-			usage_buffer_pools.push_back(std::make_pair(BufferPool{device, BUFFER_POOL_BLOCK_SIZE * 1024, usage}, nullptr));
+			BufferPool pool{device, BUFFER_POOL_BLOCK_SIZE * 1024, usage};
+			usage_buffer_pools.emplace_back(std::move(pool), nullptr);
+			//std::move(std::make_pair(, nullptr)));
 		}
 
 		auto res_ins_it = buffer_pools.emplace(usage, std::move(usage_buffer_pools));
@@ -65,7 +67,7 @@ void RenderFrame::update_render_target(RenderTarget &&render_target)
 
 void RenderFrame::reset()
 {
-	VK_CHECK(fence_pool.wait());
+	fence_pool.wait();
 
 	fence_pool.reset();
 
@@ -131,7 +133,7 @@ const FencePool &RenderFrame::get_fence_pool() const
 	return fence_pool;
 }
 
-VkFence RenderFrame::request_fence()
+vk::Fence RenderFrame::request_fence()
 {
 	return fence_pool.request_fence();
 }
@@ -141,7 +143,7 @@ const SemaphorePool &RenderFrame::get_semaphore_pool() const
 	return semaphore_pool;
 }
 
-VkSemaphore RenderFrame::request_semaphore()
+vk::Semaphore RenderFrame::request_semaphore()
 {
 	return semaphore_pool.request_semaphore();
 }
@@ -156,7 +158,7 @@ const RenderTarget &RenderFrame::get_render_target_const() const
 	return swapchain_render_target;
 }
 
-CommandBuffer &RenderFrame::request_command_buffer(const Queue &queue, CommandBuffer::ResetMode reset_mode, VkCommandBufferLevel level, size_t thread_index)
+CommandBuffer &RenderFrame::request_command_buffer(const Queue &queue, CommandBuffer::ResetMode reset_mode, vk::CommandBufferLevel level, size_t thread_index)
 {
 	assert(thread_index < thread_count && "Thread index is out of bounds");
 
@@ -167,7 +169,7 @@ CommandBuffer &RenderFrame::request_command_buffer(const Queue &queue, CommandBu
 	return (*command_pool_it)->request_command_buffer(level);
 }
 
-DescriptorSet &RenderFrame::request_descriptor_set(DescriptorSetLayout &descriptor_set_layout, const BindingMap<VkDescriptorBufferInfo> &buffer_infos, const BindingMap<VkDescriptorImageInfo> &image_infos, size_t thread_index)
+DescriptorSet &RenderFrame::request_descriptor_set(DescriptorSetLayout &descriptor_set_layout, const BindingMap<vk::DescriptorBufferInfo> &buffer_infos, const BindingMap<vk::DescriptorImageInfo> &image_infos, size_t thread_index)
 {
 	assert(thread_index < thread_count && "Thread index is out of bounds");
 
@@ -196,15 +198,15 @@ void RenderFrame::set_buffer_allocation_strategy(BufferAllocationStrategy new_st
 	buffer_allocation_strategy = new_strategy;
 }
 
-BufferAllocation RenderFrame::allocate_buffer(const VkBufferUsageFlags usage, const VkDeviceSize size, size_t thread_index)
+BufferAllocation RenderFrame::allocate_buffer(const vk::BufferUsageFlags usage, const vk::DeviceSize size, size_t thread_index)
 {
 	assert(thread_index < thread_count && "Thread index is out of bounds");
 
 	// Find a pool for this usage
-	auto buffer_pool_it = buffer_pools.find(usage);
+	auto buffer_pool_it = buffer_pools.find(usage.operator VkBufferUsageFlags());
 	if (buffer_pool_it == buffer_pools.end())
 	{
-		LOGE("No buffer pool for buffer usage {}", usage);
+		LOGE("No buffer pool for buffer usage {}", usage.operator VkBufferUsageFlags());
 		return BufferAllocation{};
 	}
 
@@ -230,4 +232,5 @@ BufferAllocation RenderFrame::allocate_buffer(const VkBufferUsageFlags usage, co
 
 	return data;
 }
+
 }        // namespace vkb

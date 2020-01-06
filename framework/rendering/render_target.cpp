@@ -25,28 +25,26 @@ namespace
 {
 struct CompareExtent2D
 {
-	bool operator()(const VkExtent2D &lhs, const VkExtent2D &rhs) const
+	bool operator()(const vk::Extent2D &lhs, const vk::Extent2D &rhs) const
 	{
 		return !(lhs.width == rhs.width && lhs.height == rhs.height) && (lhs.width < rhs.width && lhs.height < rhs.height);
 	}
 };
 }        // namespace
 
-Attachment::Attachment(VkFormat format, VkSampleCountFlagBits samples, VkImageUsageFlags usage) :
+Attachment::Attachment(vk::Format format, vk::SampleCountFlagBits samples, vk::ImageUsageFlags usage) :
     format{format},
     samples{samples},
     usage{usage}
 {
 }
 const RenderTarget::CreateFunc RenderTarget::DEFAULT_CREATE_FUNC = [](core::Image &&swapchain_image) -> RenderTarget {
-	VkFormat depth_format;
-	VkBool32 is_format_supported = get_supported_depth_format(swapchain_image.get_device().get_physical_device(), &depth_format);
-	assert(is_format_supported && "No suitable format found for depth attachment");
+	vk::Format depth_format = get_supported_depth_format(swapchain_image.get_device().get_physical_device());
 
 	core::Image depth_image{swapchain_image.get_device(), swapchain_image.get_extent(),
 	                        depth_format,
-	                        VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT,
-	                        VMA_MEMORY_USAGE_GPU_ONLY};
+	                        vk::ImageUsageFlagBits::eDepthStencilAttachment | vk::ImageUsageFlagBits::eTransientAttachment,
+	                        vma::MemoryUsage::eGpuOnly};
 
 	std::vector<core::Image> images;
 	images.push_back(std::move(swapchain_image));
@@ -82,10 +80,10 @@ vkb::RenderTarget::RenderTarget(std::vector<core::Image> &&images) :
 {
 	assert(!this->images.empty() && "Should specify at least 1 image");
 
-	std::set<VkExtent2D, CompareExtent2D> unique_extent;
+	std::set<vk::Extent2D, CompareExtent2D> unique_extent;
 
-	// Returns the image extent as a VkExtent2D structure from a VkExtent3D
-	auto get_image_extent = [](const core::Image &image) { return VkExtent2D{image.get_extent().width, image.get_extent().height}; };
+	// Returns the image extent as a vk::Extent2D structure from a vk::Extent3D
+	auto get_image_extent = [](const core::Image &image) { return vk::Extent2D{image.get_extent().width, image.get_extent().height}; };
 
 	// Constructs a set of unique image extens given a vector of images
 	std::transform(this->images.begin(), this->images.end(), std::inserter(unique_extent, unique_extent.end()), get_image_extent);
@@ -93,25 +91,25 @@ vkb::RenderTarget::RenderTarget(std::vector<core::Image> &&images) :
 	// Allow only one extent size for a render target
 	if (unique_extent.size() != 1)
 	{
-		throw VulkanException{VK_ERROR_INITIALIZATION_FAILED, "Extent size is not unique"};
+		vk::throwResultException(vk::Result::eErrorInitializationFailed, "Extent size is not unique");
 	}
 
 	extent = *unique_extent.begin();
 
 	for (auto &image : this->images)
 	{
-		if (image.get_type() != VK_IMAGE_TYPE_2D)
+		if (image.get_type() != vk::ImageType::e2D)
 		{
-			throw VulkanException{VK_ERROR_INITIALIZATION_FAILED, "Image type is not 2D"};
+			vk::throwResultException(vk::Result::eErrorInitializationFailed, "Image type is not 2D");
 		}
 
-		views.emplace_back(image, VK_IMAGE_VIEW_TYPE_2D);
+		views.emplace_back(image, vk::ImageViewType::e2D);
 
 		attachments.emplace_back(Attachment{image.get_format(), image.get_sample_count(), image.get_usage()});
 	}
 }
 
-const VkExtent2D &RenderTarget::get_extent() const
+const vk::Extent2D &RenderTarget::get_extent() const
 {
 	return extent;
 }

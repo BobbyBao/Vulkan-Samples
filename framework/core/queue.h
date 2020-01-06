@@ -26,10 +26,10 @@ namespace vkb
 class Device;
 class CommandBuffer;
 
-class Queue
+class Queue : protected vk::Queue
 {
   public:
-	Queue(Device &device, uint32_t family_index, VkQueueFamilyProperties properties, VkBool32 can_present, uint32_t index);
+	Queue(Device &device, uint32_t family_index, vk::QueueFamilyProperties properties, vk::Bool32 can_present, uint32_t index);
 
 	Queue(const Queue &) = default;
 
@@ -41,35 +41,31 @@ class Queue
 
 	const Device &get_device() const;
 
-	VkQueue get_handle() const;
+	const vk::Queue &get_handle() const;
 
 	uint32_t get_family_index() const;
 
 	uint32_t get_index() const;
 
-	VkQueueFamilyProperties get_properties() const;
+	const vk::QueueFamilyProperties& get_properties() const;
 
-	VkBool32 support_present() const;
+	vk::Bool32 support_present() const;
 
-	VkResult submit(const std::vector<VkSubmitInfo> &submit_infos, VkFence fence) const;
+	vk::Result submit(const CommandBuffer &command_buffer, vk::Fence fence) const;
 
-	VkResult submit(const CommandBuffer &command_buffer, VkFence fence) const;
+	vk::Result present(const vk::PresentInfoKHR &present_infos) const;
 
-	VkResult present(const VkPresentInfoKHR &present_infos) const;
-
-	VkResult wait_idle() const;
+	vk::Result wait_idle() const;
 
   private:
 	Device &device;
-
-	VkQueue handle{VK_NULL_HANDLE};
 
 	uint32_t family_index{0};
 
 	uint32_t index{0};
 
-	VkBool32 can_present{VK_FALSE};
+	vk::Bool32 can_present{VK_FALSE};
 
-	VkQueueFamilyProperties properties{};
+	vk::QueueFamilyProperties properties;
 };
 }        // namespace vkb

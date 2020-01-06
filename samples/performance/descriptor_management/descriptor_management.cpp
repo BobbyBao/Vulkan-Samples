@@ -89,7 +89,7 @@ void DescriptorManagement::update(float delta_time)
 		render_context.get_active_frame().clear_descriptors();
 	}
 
-	command_buffer.begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+	command_buffer.begin(vk::CommandBufferUsageFlagBits::eOneTimeSubmit);
 
 	draw(command_buffer, render_context.get_active_frame().get_render_target());
 

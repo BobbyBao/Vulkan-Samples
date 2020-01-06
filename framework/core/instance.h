@@ -23,12 +23,12 @@
 namespace vkb
 {
 /**
- * @brief A wrapper class for VkInstance
+ * @brief A wrapper class for vk::Instance
  *
  * This class is responsible for initializing volk, enumerating over all available extensions and validation layers
  * enabling them if they exist, setting up debug messaging and querying all the physical devices existing on the machine.
  */
-class Instance
+class Instance : protected vk::Instance
 {
   public:
 	/**
@@ -45,10 +45,10 @@ class Instance
 	         bool                             headless                   = false);
 
 	/**
-	 * @brief Queries the GPUs of a VkInstance that is already created
-	 * @param instance A valid VkInstance
+	 * @brief Queries the GPUs of a vk::Instance that is already created
+	 * @param instance A valid vk::Instance
 	 */
-	Instance(VkInstance instance);
+	Instance(vk::Instance instance);
 
 	Instance(const Instance &) = delete;
 
@@ -69,24 +69,19 @@ class Instance
 	 * @brief Tries to find the first available discrete GPU
 	 * @returns A valid physical device
 	 */
-	VkPhysicalDevice get_gpu();
+	vk::PhysicalDevice get_gpu();
 
 	/**
-	 * @brief Checks if the given extension is enabled in the VkInstance
+	 * @brief Checks if the given extension is enabled in the vk::Instance
 	 * @param extension An extension to check
 	 */
 	bool is_enabled(const char *extension);
 
-	VkInstance get_handle();
+	vk::Instance get_handle() const;
 
 	const std::vector<const char *> &get_extensions();
 
   private:
-	/**
-	 * @brief The Vulkan instance
-	 */
-	VkInstance handle{VK_NULL_HANDLE};
-
 	/**
 	 * @brief The enabled extensions
 	 */
@@ -96,12 +91,12 @@ class Instance
 	/**
 	 * @brief The debug report callback
 	 */
-	VkDebugReportCallbackEXT debug_report_callback{VK_NULL_HANDLE};
+	vk::DebugReportCallbackEXT debug_report_callback;
 #endif
 
 	/**
 	 * @brief The physical devices found on the machine
 	 */
-	std::vector<VkPhysicalDevice> gpus;
+	std::vector<vk::PhysicalDevice> gpus;
 };
 }        // namespace vkb

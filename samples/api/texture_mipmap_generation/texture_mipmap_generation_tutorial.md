@@ -67,7 +67,7 @@ This is then passed to the image creat info:
 
 ```cpp
 VkImageCreateInfo image_create_info = vkb::initializers::image_create_info();
-image_create_info.imageType         = VK_IMAGE_TYPE_2D;
+image_create_info.imageType         = vk::ImageType::e2D;
 image_create_info.format            = format;
 image_create_info.mipLevels         = texture.mip_levels;;
 ...
