@@ -1,3 +1,4 @@
+#version 320 es
 /* Copyright (c) 2019-2020, Arm Limited and Contributors
  *
  * SPDX-License-Identifier: Apache-2.0
