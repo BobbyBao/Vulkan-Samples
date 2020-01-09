@@ -236,6 +236,10 @@ class CommandBuffer
 
 	ResourceBindingState resource_binding_state;
 
+	VkExtent2D last_framebuffer_extent{};
+
+	VkExtent2D last_render_area_extent{};
+
 	std::unordered_map<uint32_t, DescriptorSetLayout *> descriptor_set_layout_binding_state;
 
 	const RenderPassBinding &get_current_render_pass() const;
@@ -245,7 +249,7 @@ class CommandBuffer
 	/**
 	 * @brief Check that the render area is an optimal size by comparing to the render area granularity
 	 */
-	const bool is_render_size_optimal(const VkRect2D &render_area);
+	const bool is_render_size_optimal(const VkExtent2D &extent, const VkRect2D &render_area);
 
 	/**
 	 * @brief Flush the piplines state

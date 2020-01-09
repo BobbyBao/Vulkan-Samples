@@ -167,10 +167,20 @@ void CommandBuffer::begin_render_pass(const RenderTarget &render_target, const s
 	begin_info.clearValueCount   = to_u32(clear_values.size());
 	begin_info.pClearValues      = clear_values.data();
 
+	const auto &framebuffer_extent = current_render_pass.framebuffer->get_extent();
+
 	// Test the requested render area to confirm that it is optimal and could not cause a performance reduction
-	if (!is_render_size_optimal(begin_info.renderArea))
+	if (!is_render_size_optimal(framebuffer_extent, begin_info.renderArea))
 	{
-		LOGD("Render target extent is not an optimal size, this may result in reduced performance.");
+		// Only prints the warning if the framebuffer or render area are different since the last time the render size was not optimal
+		if (framebuffer_extent.width != last_framebuffer_extent.width || framebuffer_extent.height != last_framebuffer_extent.height ||
+		    begin_info.renderArea.extent.width != last_render_area_extent.width || begin_info.renderArea.extent.height != last_render_area_extent.height)
+		{
+			LOGW("Render target extent is not an optimal size, this may result in reduced performance.");
+		}
+
+		last_framebuffer_extent = current_render_pass.framebuffer->get_extent();
+		last_render_area_extent = begin_info.renderArea.extent;
 	}
 
 	vkCmdBeginRenderPass(get_handle(), &begin_info, contents);
@@ -697,13 +707,13 @@ const uint32_t CommandBuffer::get_current_subpass_index() const
 	return pipeline_state.get_subpass_index();
 }
 
-const bool CommandBuffer::is_render_size_optimal(const VkRect2D &render_area)
+const bool CommandBuffer::is_render_size_optimal(const VkExtent2D &framebuffer_extent, const VkRect2D &render_area)
 {
 	auto render_area_granularity = current_render_pass.render_pass->get_render_area_granularity();
 
 	return ((render_area.offset.x % render_area_granularity.width == 0) && (render_area.offset.y % render_area_granularity.height == 0) &&
-	        ((render_area.extent.width % render_area_granularity.width == 0) || (render_area.offset.x + render_area.extent.width == render_area_granularity.width)) &&
-	        ((render_area.extent.height % render_area_granularity.height == 0) || (render_area.offset.y + render_area.extent.height == render_area_granularity.height)));
+	        ((render_area.extent.width % render_area_granularity.width == 0) || (render_area.offset.x + render_area.extent.width == framebuffer_extent.width)) &&
+	        ((render_area.extent.height % render_area_granularity.height == 0) || (render_area.offset.y + render_area.extent.height == framebuffer_extent.height)));
 }
 
 VkResult CommandBuffer::reset(ResetMode reset_mode)
