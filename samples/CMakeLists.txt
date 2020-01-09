@@ -72,7 +72,6 @@ set(ORDER_LIST
     "pipeline_barriers"
     "wait_idle"
     "layout_transitions"
-    "pipeline_cache"
     "specialization_constants"
     "command_buffer_usage"
     "afbc")

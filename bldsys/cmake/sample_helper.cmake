@@ -335,6 +335,8 @@ function(order_sample_list)
 
     cmake_parse_arguments(TARGET "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
+    list(REMOVE_DUPLICATES TARGET_ORDER)
+
     # Add samples based on the given order
     foreach(SAMPLE_ID ${TARGET_ORDER})
         list(FIND TARGET_INPUT ${SAMPLE_ID} FOUND_SAMPLE)
